@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SolarIQ — Energy Audit System</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2235;
+  --surface3: #212d42;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --accent: #f97316;
+  --accent2: #fb923c;
+  --green: #22c55e;
+  --blue: #3b82f6;
+  --red: #ef4444;
+  --yellow: #eab308;
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Instrument Sans', sans-serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; }
+
+/* LAYOUT */
+.app { display: flex; height: 100vh; }
+.sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 0; position: relative; z-index: 10; }
+.main { flex: 1; overflow-y: auto; }
+
+/* SIDEBAR */
+.logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border); }
+.logo-mark { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.logo-text { font-family: var(--font-display); font-weight: 800; font-size: 17px; color: var(--text); }
+.logo-sub { font-size: 10px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
+.nav { flex: 1; padding: 16px 12px; }
+.nav-section { font-size: 10px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; padding: 0 8px; margin: 18px 0 6px; }
+.nav-section:first-child { margin-top: 0; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13.5px; font-weight: 500; color: var(--text2); transition: all .15s; margin-bottom: 2px; border: none; background: none; width: 100%; text-align: left; }
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: rgba(249,115,22,.12); color: var(--accent); }
+.nav-item .nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; background: var(--accent); color: white; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 6px; }
+.sidebar-footer { padding: 16px 12px; border-top: 1px solid var(--border); }
+.user-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface2); }
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #7c3aed); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0; }
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.user-role { font-size: 10px; color: var(--text3); }
+
+/* PAGE WRAPPER */
+.page { display: none; padding: 32px 36px; max-width: 1100px; min-height: 100%; }
+.page.active { display: block; }
+
+/* PAGE HEADER */
+.page-header { margin-bottom: 28px; }
+.page-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--text); }
+.page-desc { font-size: 14px; color: var(--text2); margin-top: 4px; }
+.page-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; font-family: var(--font-body); cursor: pointer; border: none; transition: all .15s; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+.btn-secondary:hover { background: var(--surface3); }
+.btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+.btn-green { background: var(--green); color: white; }
+.btn-green:hover { background: #16a34a; }
+.btn-danger { background: var(--red); color: white; }
+.btn-lg { padding: 12px 22px; font-size: 14px; border-radius: var(--radius); }
+
+/* CARDS */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+.card-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.card-title .badge { font-family: var(--font-body); font-size: 10px; font-weight: 600; background: var(--surface3); color: var(--text2); padding: 2px 8px; border-radius: 20px; letter-spacing: .04em; text-transform: uppercase; }
+
+/* STAT CARDS */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; position: relative; overflow: hidden; }
+.stat-card::after { content: ''; position: absolute; top: 0; right: 0; width: 3px; height: 100%; background: var(--accent-color, var(--accent)); border-radius: 0 var(--radius) var(--radius) 0; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; }
+.stat-value { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--text); margin: 6px 0 4px; }
+.stat-sub { font-size: 12px; color: var(--text3); }
+
+/* GRID LAYOUTS */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.col-6040 { display: grid; grid-template-columns: 6fr 4fr; gap: 20px; }
+
+/* FORM ELEMENTS */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; letter-spacing: .03em; text-transform: uppercase; }
+.form-input { width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-body); font-size: 14px; outline: none; transition: border .15s; }
+.form-input:focus { border-color: var(--accent); }
+.form-input option { background: var(--surface); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+/* TABLE */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.data-table th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); }
+.data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(255,255,255,.02); }
+.data-table td.mono { font-family: monospace; font-size: 13px; color: var(--text); }
+.data-table td.bold { color: var(--text); font-weight: 600; }
+
+/* APPLIANCE GRID */
+.appliance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.appliance-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: border .15s; }
+.appliance-card:hover { border-color: var(--border2); }
+.appliance-header { display: flex; justify-content: space-between; align-items: center; }
+.appliance-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.appliance-watts { font-size: 11px; color: var(--text3); }
+.appliance-qty { display: flex; align-items: center; gap: 8px; }
+.qty-btn { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border2); background: var(--surface3); color: var(--text); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .1s; }
+.qty-btn:hover { background: var(--accent); border-color: var(--accent); }
+.qty-val { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text); min-width: 20px; text-align: center; }
+.appliance-subtotal { font-size: 11px; color: var(--accent); font-weight: 600; }
+
+/* BREAKDOWN */
+.breakdown-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.breakdown-item:last-child { border-bottom: none; }
+.breakdown-label { font-size: 13.5px; color: var(--text2); }
+.breakdown-label span { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
+.breakdown-val { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--text); }
+.breakdown-total { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(249,115,22,.08); border: 1px solid rgba(249,115,22,.2); border-radius: var(--radius-sm); margin-top: 14px; }
+.breakdown-total-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.breakdown-total-val { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--accent); }
+
+/* AUDIT LIST */
+.audit-item { display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; cursor: pointer; transition: all .15s; }
+.audit-item:hover { border-color: var(--border2); background: var(--surface3); }
+.audit-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(249,115,22,.12); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.audit-meta { flex: 1; }
+.audit-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.audit-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.audit-badges { display: flex; gap: 6px; }
+.badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-orange { background: rgba(249,115,22,.15); color: var(--accent); }
+.badge-green { background: rgba(34,197,94,.12); color: var(--green); }
+.badge-blue { background: rgba(59,130,246,.12); color: var(--blue); }
+.badge-gray { background: var(--surface3); color: var(--text3); }
+
+/* PRICING TABLE */
+.price-category { margin-bottom: 24px; }
+.price-cat-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 8px; }
+.price-cat-icon { font-size: 16px; }
+.price-cat-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.price-row { display: grid; grid-template-columns: 3fr 1fr 1.5fr 1.5fr 80px; gap: 0; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.price-row.header { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 2px solid var(--border2); padding-bottom: 8px; }
+.price-row:last-child { border-bottom: none; }
+.price-input-sm { width: 100%; padding: 6px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font-body); font-size: 13px; outline: none; }
+.price-input-sm:focus { border-color: var(--accent); }
+
+/* QUOTE */
+.quote-preview { background: white; color: #111; border-radius: var(--radius); padding: 40px; max-width: 700px; }
+.quote-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #f97316; }
+.quote-logo { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: #f97316; }
+.quote-logo span { display: block; font-size: 11px; font-weight: 400; color: #6b7280; margin-top: 2px; }
+.quote-meta { text-align: right; font-size: 12px; color: #6b7280; line-height: 1.8; }
+.quote-client { margin-bottom: 24px; }
+.quote-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #f97316; margin-bottom: 8px; }
+.quote-client-name { font-size: 18px; font-weight: 700; color: #111; }
+.quote-client-detail { font-size: 13px; color: #6b7280; }
+.quote-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+.quote-table th { background: #f97316; color: white; padding: 10px 14px; text-align: left; font-weight: 600; }
+.quote-table td { padding: 10px 14px; border-bottom: 1px solid #e5e7eb; color: #374151; }
+.quote-table tr:last-child td { border-bottom: none; }
+.quote-total-section { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px 20px; }
+.quote-total-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: #6b7280; }
+.quote-total-final { display: flex; justify-content: space-between; font-size: 18px; font-weight: 800; color: #f97316; padding-top: 10px; margin-top: 8px; border-top: 1px solid #fed7aa; }
+.quote-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
+
+/* TABS */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.tab { padding: 10px 18px; font-size: 13px; font-weight: 600; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+.tab:hover { color: var(--text2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* PROGRESS */
+.progress-bar { height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s; }
+
+/* MISC */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.empty-state { text-align: center; padding: 60px 20px; }
+.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
+.empty-title { font-size: 16px; font-weight: 600; color: var(--text2); }
+.empty-sub { font-size: 13px; color: var(--text3); margin-top: 4px; }
+.alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
+.alert-info { background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.2); color: #93c5fd; }
+.alert-success { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.2); color: #86efac; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 28px; width: 480px; max-width: 95vw; }
+.modal-title { font-family: var(--font-display); font-size: 18px; font-weight: 800; margin-bottom: 20px; }
+
+/* CHART BAR */
+.mini-bar { display: flex; flex-direction: column; gap: 8px; }
+.mini-bar-item { display: flex; align-items: center; gap: 10px; }
+.mini-bar-label { font-size: 12px; color: var(--text2); width: 100px; flex-shrink: 0; }
+.mini-bar-track { flex: 1; height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
+.mini-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .5s; }
+.mini-bar-val { font-size: 12px; color: var(--text3); width: 60px; text-align: right; flex-shrink: 0; }
+
+@media(max-width:900px){
+  .sidebar{width:60px;overflow:hidden;}
+  .logo-text,.logo-sub,.nav-section,.nav-item span:not(.nav-icon),.nav-badge,.user-info{display:none;}
+  .nav-item{justify-content:center;padding:12px;}
+  .page{padding:20px 16px;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .appliance-grid{grid-template-columns:1fr 1fr;}
+  .two-col,.col-6040{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <div class="logo-text">SolarIQ</div>
+        <div class="logo-sub">Audit System</div>
+      </div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Main</div>
+    <button class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">⊞</span><span>Dashboard</span></button>
+    <button class="nav-item" onclick="showPage('new-audit')"><span class="nav-icon">+</span><span>New Audit</span></button>
+    <div class="nav-section">Data</div>
+    <button class="nav-item" onclick="showPage('audits')"><span class="nav-icon">📋</span><span>Saved Audits</span><span class="nav-badge" id="audit-count">0</span></button>
+    <button class="nav-item" onclick="showPage('quotes')"><span class="nav-icon">📄</span><span>Quotes</span><span class="nav-badge" id="quote-count">0</span></button>
+    <div class="nav-section">Settings</div>
+    <button class="nav-item" onclick="showPage('pricing')"><span class="nav-icon">₦</span><span>Price Lists</span></button>
+    <button class="nav-item" onclick="showPage('settings')"><span class="nav-icon">⚙</span><span>Settings</span></button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <div class="user-avatar">A</div>
+      <div class="user-info">
+        <div class="user-name">Admin</div>
+        <div class="user-role">Engineer</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- DASHBOARD PAGE -->
+<div class="page active" id="page-dashboard">
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-desc">Overview of your energy audit operations</div>
+      </div>
+      <button class="btn btn-primary btn-lg" onclick="showPage('new-audit')">＋ New Audit</button>
+    </div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card" style="--accent-color:var(--accent)">
+      <div class="stat-label">Total Audits</div>
+      <div class="stat-value" id="dash-total">0</div>
+      <div class="stat-sub">Completed audits</div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--green)">
+      <div class="stat-label">Total Revenue</div>
+      <div class="stat-value" id="dash-revenue">₦0</div>
+      <div class="stat-sub">From quotes generated</div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--blue)">
+      <div class="stat-label">Avg System Size</div>
+      <div class="stat-value" id="dash-avg-size">0 kW</div>
+      <div class="stat-sub">Across all audits</div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--yellow)">
+      <div class="stat-label">Quotes Sent</div>
+      <div class="stat-value" id="dash-quotes">0</div>
+      <div class="stat-sub">Pending approval</div>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Recent Audits</div>
+      <div id="dash-recent"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Load Distribution <span class="badge">Avg across audits</span></div>
+      <div class="mini-bar" id="dash-bar">
+        <div class="mini-bar-item"><div class="mini-bar-label">AC Units</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:70%"></div></div><div class="mini-bar-val">1500W</div></div>
+        <div class="mini-bar-item"><div class="mini-bar-label">Fridge</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:20%"></div></div><div class="mini-bar-val">300W</div></div>
+        <div class="mini-bar-item"><div class="mini-bar-label">TV</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:10%"></div></div><div class="mini-bar-val">120W</div></div>
+        <div class="mini-bar-item"><div class="mini-bar-label">Fans</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:7%"></div></div><div class="mini-bar-val">75W</div></div>
+        <div class="mini-bar-item"><div class="mini-bar-label">Lights</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:5%"></div></div><div class="mini-bar-val">15W</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW AUDIT PAGE -->
+<div class="page" id="page-new-audit">
+  <div class="page-header">
+    <div class="page-title">New Audit</div>
+    <div class="page-desc">Complete the form to generate a solar system specification and cost breakdown</div>
+  </div>
+
+  <div class="col-6040">
+    <div>
+      <!-- CLIENT INFO -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Client Information</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Client Name</label>
+            <input type="text" class="form-input" id="client-name" placeholder="e.g. Mr. John Okafor">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input type="text" class="form-input" id="client-phone" placeholder="08012345678">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Property Type</label>
+            <select class="form-input" id="property-type">
+              <option value="1BR">1 Bedroom</option>
+              <option value="2BR">2 Bedroom</option>
+              <option value="3BR">3 Bedroom</option>
+              <option value="4BR" selected>4 Bedroom</option>
+              <option value="5BR">5 Bedroom</option>
+              <option value="duplex">Duplex</option>
+              <option value="commercial">Commercial</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location / State</label>
+            <select class="form-input" id="client-location">
+              <option>Abuja FCT</option>
+              <option>Lagos</option>
+              <option>Port Harcourt</option>
+              <option>Kano</option>
+              <option>Ibadan</option>
+              <option>Enugu</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Grid Availability (hrs/day)</label>
+            <input type="number" class="form-input" id="grid-hours" value="4" min="0" max="24">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Usage Hours / Day</label>
+            <input type="number" class="form-input" id="usage-hours" value="8" min="1" max="24">
+          </div>
+        </div>
+      </div>
+
+      <!-- APPLIANCES -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Appliance Load <span class="badge" id="total-load-badge">0W total</span></div>
+        <div class="appliance-grid" id="appliance-grid"></div>
+      </div>
+
+      <!-- SYSTEM PARAMS -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">System Parameters</div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">Battery Backup Days</label>
+            <select class="form-input" id="backup-days">
+              <option value="1">1 day</option>
+              <option value="1.5">1.5 days</option>
+              <option value="2">2 days</option>
+              <option value="3">3 days</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Battery Type</label>
+            <select class="form-input" id="battery-type">
+              <option value="lithium">Lithium (LiFePO4)</option>
+              <option value="lead">Lead-Acid</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Inverter Brand</label>
+            <select class="form-input" id="inverter-brand">
+              <option>Luminous</option>
+              <option>Felicity</option>
+              <option>Victron</option>
+              <option>Growatt</option>
+              <option>Schneider</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Panel Brand</label>
+            <select class="form-input" id="panel-brand">
+              <option>Canadian Solar</option>
+              <option>Jinko Solar</option>
+              <option>LONGi Solar</option>
+              <option>Risen Energy</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Margin / Markup %</label>
+            <input type="number" class="form-input" id="markup" value="20" min="0" max="100">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE CALC PANEL -->
+    <div>
+      <div class="card" style="margin-bottom:14px;position:sticky;top:20px">
+        <div class="card-title">Live Calculation</div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Total Load<span>Sum of all appliances</span></div>
+          <div class="breakdown-val" id="calc-load">0 W</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Daily Energy<span>Load × usage hours</span></div>
+          <div class="breakdown-val" id="calc-daily">0 kWh</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Panel Capacity<span>Daily ÷ 4.5 sun hrs</span></div>
+          <div class="breakdown-val" id="calc-panel">0 W</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Battery Bank<span>With DOD factor</span></div>
+          <div class="breakdown-val" id="calc-battery">0 kWh</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Inverter Size<span>1.25× peak load</span></div>
+          <div class="breakdown-val" id="calc-inverter">0 kVA</div>
+        </div>
+        <div class="divider"></div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Equipment Cost<span>Before markup</span></div>
+          <div class="breakdown-val" id="calc-equip">₦0</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Installation<span>12% of equipment</span></div>
+          <div class="breakdown-val" id="calc-install">₦0</div>
+        </div>
+        <div class="breakdown-total">
+          <div class="breakdown-total-label">Client Quote Total</div>
+          <div class="breakdown-total-val" id="calc-total">₦0</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="btn btn-primary" style="flex:1" onclick="saveAudit()">💾 Save Audit</button>
+          <button class="btn btn-green" style="flex:1" onclick="generateQuote()">📄 Generate Quote</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SAVED AUDITS PAGE -->
+<div class="page" id="page-audits">
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="page-title">Saved Audits</div>
+        <div class="page-desc">All completed energy audits</div>
+      </div>
+      <button class="btn btn-primary" onclick="showPage('new-audit')">＋ New Audit</button>
+    </div>
+  </div>
+  <div id="audits-list"></div>
+</div>
+
+<!-- QUOTES PAGE -->
+<div class="page" id="page-quotes">
+  <div class="page-header">
+    <div class="page-title">Generated Quotes</div>
+    <div class="page-desc">Client-ready quotes and proposals</div>
+  </div>
+  <div id="quotes-list"></div>
+</div>
+
+<!-- PRICING PAGE -->
+<div class="page" id="page-pricing">
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="page-title">Price Lists</div>
+        <div class="page-desc">Edit component pricing — changes apply to all new calculations</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" onclick="resetPrices()">↺ Reset Defaults</button>
+        <button class="btn btn-primary" onclick="savePrices()">💾 Save Prices</button>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchPriceTab('user')">User Prices</div>
+    <div class="tab" onclick="switchPriceTab('dealer')">Dealer Prices</div>
+  </div>
+  <div id="price-table-container"></div>
+</div>
+
+<!-- SETTINGS PAGE -->
+<div class="page" id="page-settings">
+  <div class="page-header">
+    <div class="page-title">Settings</div>
+    <div class="page-desc">Company info and system configuration</div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Company Info</div>
+      <div class="form-group"><label class="form-label">Company Name</label><input type="text" class="form-input" id="co-name" placeholder="SolarIQ Nigeria Ltd"></div>
+      <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" id="co-address" placeholder="123 Energy Way, Abuja"></div>
+      <div class="form-group"><label class="form-label">Phone</label><input type="text" class="form-input" id="co-phone" placeholder="0800 000 0000"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="text" class="form-input" id="co-email" placeholder="info@solariq.ng"></div>
+      <div class="form-group"><label class="form-label">Website</label><input type="text" class="form-input" id="co-web" placeholder="www.solariq.ng"></div>
+      <button class="btn btn-primary" onclick="saveSettings()">Save Company Info</button>
+    </div>
+    <div class="card">
+      <div class="card-title">System Config</div>
+      <div class="form-group"><label class="form-label">Peak Sun Hours (default)</label><input type="number" class="form-input" id="cfg-sun" value="4.5"></div>
+      <div class="form-group"><label class="form-label">Installation % of equipment</label><input type="number" class="form-input" id="cfg-install" value="12"></div>
+      <div class="form-group"><label class="form-label">Battery DOD factor (Lithium)</label><input type="number" class="form-input" id="cfg-dod" value="1.25"></div>
+      <div class="form-group"><label class="form-label">Battery DOD factor (Lead-Acid)</label><input type="number" class="form-input" id="cfg-dod-la" value="2.0"></div>
+      <button class="btn btn-primary" onclick="saveSettings()">Save Config</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:20px">
+    <div class="card-title">Data Management</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" onclick="exportData()">⬇ Export All Data</button>
+      <button class="btn btn-danger" onclick="clearAllData()">🗑 Clear All Data</button>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- AUDIT DETAIL MODAL -->
+<div class="modal-overlay" id="audit-modal">
+  <div class="modal" style="width:700px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div class="modal-title" id="modal-audit-title">Audit Detail</div>
+      <button class="btn btn-ghost" onclick="closeModal('audit-modal')">✕</button>
+    </div>
+    <div id="modal-audit-body"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn btn-primary" onclick="generateQuoteFromModal()">📄 Generate Quote</button>
+      <button class="btn btn-danger" onclick="deleteAuditFromModal()">🗑 Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUOTE VIEW MODAL -->
+<div class="modal-overlay" id="quote-modal">
+  <div class="modal" style="width:780px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div class="modal-title">Client Quote</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="downloadPDF()">⬇ Download PDF</button>
+        <button class="btn btn-ghost" onclick="closeModal('quote-modal')">✕</button>
+      </div>
+    </div>
+    <div id="modal-quote-body"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA MODELS
+// ============================================================
+const DEFAULT_APPLIANCES = [
+  { id:'ac',     name:'AC Unit',    watts:1500, icon:'❄️' },
+  { id:'fridge', name:'Fridge',     watts:300,  icon:'🧊' },
+  { id:'tv',     name:'TV',         watts:120,  icon:'📺' },
+  { id:'fan',    name:'Fan',        watts:75,   icon:'💨' },
+  { id:'laptop', name:'Laptop',     watts:65,   icon:'💻' },
+  { id:'light',  name:'LED Light',  watts:15,   icon:'💡' },
+  { id:'pump',   name:'Water Pump', watts:750,  icon:'🚿' },
+  { id:'blender',name:'Blender',    watts:400,  icon:'🔌' },
+  { id:'iron',   name:'Iron',       watts:1000, icon:'👔' },
+];
+
+const DEFAULT_PRICES = {
+  user: {
+    panelPerWatt: 400,
+    batteryLithiumPerKWh: 220000,
+    batteryLeadPerKWh: 90000,
+    inverterPerKVA: 140000,
+    cabling: 85000,
+    mounting: 60000,
+    accessories: 45000,
+  },
+  dealer: {
+    panelPerWatt: 280,
+    batteryLithiumPerKWh: 160000,
+    batteryLeadPerKWh: 65000,
+    inverterPerKVA: 100000,
+    cabling: 60000,
+    mounting: 42000,
+    accessories: 30000,
+  }
+};
+
+const DEFAULT_CONFIG = {
+  sunHours: 4.5,
+  installPct: 0.12,
+  dodLithium: 1.25,
+  dodLead: 2.0
+};
+
+const DEFAULT_COMPANY = {
+  name: 'SolarIQ Nigeria Ltd',
+  address: '123 Energy Way, Abuja FCT',
+  phone: '0800 000 0000',
+  email: 'info@solariq.ng',
+  web: 'www.solariq.ng'
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  appliances: {},     // {id: qty}
+  audits: [],
+  quotes: [],
+  prices: JSON.parse(JSON.stringify(DEFAULT_PRICES)),
+  config: { ...DEFAULT_CONFIG },
+  company: { ...DEFAULT_COMPANY },
+  currentAuditId: null,
+  activePriceTab: 'user',
+};
+
+let currentModalAudit = null;
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  loadFromStorage();
+  renderApplianceGrid();
+  populateSettingsForm();
+  recalculate();
+  updateDashboard();
+  updateBadges();
+}
+
+function loadFromStorage() {
+  const saved = localStorage.getItem('solariq_state');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    state.audits = parsed.audits || [];
+    state.quotes = parsed.quotes || [];
+    state.prices = parsed.prices || JSON.parse(JSON.stringify(DEFAULT_PRICES));
+    state.config = parsed.config || { ...DEFAULT_CONFIG };
+    state.company = parsed.company || { ...DEFAULT_COMPANY };
+  }
+  DEFAULT_APPLIANCES.forEach(a => { state.appliances[a.id] = 0; });
+}
+
+function saveToStorage() {
+  localStorage.setItem('solariq_state', JSON.stringify({
+    audits: state.audits,
+    quotes: state.quotes,
+    prices: state.prices,
+    config: state.config,
+    company: state.company
+  }));
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'"+id+"'")) {
+      btn.classList.add('active');
+    }
+  });
+  if (id === 'audits') renderAuditsList();
+  if (id === 'quotes') renderQuotesList();
+  if (id === 'pricing') renderPriceTable();
+  if (id === 'dashboard') updateDashboard();
+}
+
+// ============================================================
+// APPLIANCE GRID
+// ============================================================
+function renderApplianceGrid() {
+  const grid = document.getElementById('appliance-grid');
+  grid.innerHTML = DEFAULT_APPLIANCES.map(a => `
+    <div class="appliance-card">
+      <div class="appliance-header">
+        <div>
+          <div class="appliance-name">${a.icon} ${a.name}</div>
+          <div class="appliance-watts">${a.watts}W each</div>
+        </div>
+      </div>
+      <div class="appliance-qty">
+        <button class="qty-btn" onclick="adjustQty('${a.id}',-1)">−</button>
+        <div class="qty-val" id="qty-${a.id}">${state.appliances[a.id]||0}</div>
+        <button class="qty-btn" onclick="adjustQty('${a.id}',1)">+</button>
+      </div>
+      <div class="appliance-subtotal" id="sub-${a.id}">${(state.appliances[a.id]||0)*a.watts} W</div>
+    </div>
+  `).join('');
+}
+
+function adjustQty(id, delta) {
+  state.appliances[id] = Math.max(0, (state.appliances[id]||0) + delta);
+  document.getElementById('qty-'+id).textContent = state.appliances[id];
+  const watts = DEFAULT_APPLIANCES.find(a=>a.id===id).watts;
+  document.getElementById('sub-'+id).textContent = (state.appliances[id]*watts) + ' W';
+  recalculate();
+}
+
+// ============================================================
+// CALCULATION ENGINE
+// ============================================================
+function calcSystem(appliances, opts) {
+  const usageHours = opts.usageHours || 8;
+  const backupDays = opts.backupDays || 1;
+  const batteryType = opts.batteryType || 'lithium';
+  const markup = (opts.markup || 0) / 100;
+  const prices = state.prices.user;
+  const cfg = state.config;
+
+  let totalLoad = 0;
+  DEFAULT_APPLIANCES.forEach(a => {
+    totalLoad += (appliances[a.id]||0) * a.watts;
+  });
+
+  const dailyKWh = (totalLoad * usageHours) / 1000;
+  const panelW = Math.ceil((dailyKWh / cfg.sunHours) * 1000 / 50) * 50;
+  const dod = batteryType === 'lithium' ? cfg.dodLithium : cfg.dodLead;
+  const batteryKWh = Math.ceil(dailyKWh * backupDays * dod * 10) / 10;
+  const inverterKVA = Math.ceil((totalLoad / 1000) * 1.25 * 10) / 10;
+
+  const batteryPrice = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
+  const cPanels = panelW * prices.panelPerWatt;
+  const cBattery = batteryKWh * batteryPrice;
+  const cInverter = inverterKVA * prices.inverterPerKVA;
+  const cCabling = prices.cabling;
+  const cMounting = prices.mounting;
+  const cAccessories = prices.accessories;
+  const equipTotal = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
+  const cInstall = equipTotal * cfg.installPct;
+  const subtotal = equipTotal + cInstall;
+  const markupAmt = subtotal * markup;
+  const total = subtotal + markupAmt;
+
+  return { totalLoad, dailyKWh, panelW, batteryKWh, inverterKVA, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+}
+
+function recalculate() {
+  const opts = {
+    usageHours: parseFloat(document.getElementById('usage-hours')?.value)||8,
+    backupDays: parseFloat(document.getElementById('backup-days')?.value)||1,
+    batteryType: document.getElementById('battery-type')?.value||'lithium',
+    markup: parseFloat(document.getElementById('markup')?.value)||0
+  };
+  const r = calcSystem(state.appliances, opts);
+
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  document.getElementById('calc-load').textContent = fmt(r.totalLoad) + ' W';
+  document.getElementById('calc-daily').textContent = r.dailyKWh.toFixed(2) + ' kWh';
+  document.getElementById('calc-panel').textContent = fmt(r.panelW) + ' W';
+  document.getElementById('calc-battery').textContent = r.batteryKWh.toFixed(1) + ' kWh';
+  document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(1) + ' kVA';
+  document.getElementById('calc-equip').textContent = '₦' + fmt(r.equipTotal);
+  document.getElementById('calc-install').textContent = '₦' + fmt(r.cInstall);
+  document.getElementById('calc-total').textContent = '₦' + fmt(r.total);
+  document.getElementById('total-load-badge').textContent = fmt(r.totalLoad) + 'W total';
+}
+
+// ============================================================
+// SAVE AUDIT
+// ============================================================
+function saveAudit() {
+  const clientName = document.getElementById('client-name').value || 'Unnamed Client';
+  const clientPhone = document.getElementById('client-phone').value || '';
+  const propertyType = document.getElementById('property-type').value;
+  const location = document.getElementById('client-location').value;
+  const usageHours = parseFloat(document.getElementById('usage-hours').value)||8;
+  const gridHours = parseFloat(document.getElementById('grid-hours').value)||4;
+  const backupDays = parseFloat(document.getElementById('backup-days').value)||1;
+  const batteryType = document.getElementById('battery-type').value;
+  const inverterBrand = document.getElementById('inverter-brand').value;
+  const panelBrand = document.getElementById('panel-brand').value;
+  const markup = parseFloat(document.getElementById('markup').value)||0;
+
+  const opts = { usageHours, backupDays, batteryType, markup };
+  const r = calcSystem(state.appliances, opts);
+
+  const audit = {
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString(),
+    clientName, clientPhone, propertyType, location,
+    usageHours, gridHours, backupDays, batteryType, inverterBrand, panelBrand, markup,
+    appliances: { ...state.appliances },
+    result: r
+  };
+
+  state.audits.unshift(audit);
+  saveToStorage();
+  updateBadges();
+  updateDashboard();
+  alert('✅ Audit saved for ' + clientName);
+}
+
+// ============================================================
+// GENERATE QUOTE
+// ============================================================
+function generateQuote(auditOverride) {
+  const audit = auditOverride || buildCurrentAudit();
+  const r = audit.result;
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  const co = state.company;
+  const qId = 'QT-' + Date.now().toString().slice(-6);
+  const dateStr = new Date().toLocaleDateString('en-NG', {year:'numeric',month:'long',day:'numeric'});
+
+  const quoteHTML = `
+  <div class="quote-preview" id="quote-print-area">
+    <div class="quote-header">
+      <div>
+        <div class="quote-logo">⚡ ${co.name}<span>${co.address}</span></div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">${co.phone} · ${co.email}</div>
+      </div>
+      <div class="quote-meta">
+        <strong style="color:#111;font-size:14px">QUOTATION</strong><br>
+        Ref: ${qId}<br>
+        Date: ${dateStr}<br>
+        Valid: 30 days
+      </div>
+    </div>
+    <div class="quote-client">
+      <div class="quote-section-title">Prepared For</div>
+      <div class="quote-client-name">${audit.clientName}</div>
+      <div class="quote-client-detail">${audit.clientPhone} · ${audit.location} · ${audit.propertyType}</div>
+    </div>
+    <div class="quote-section-title">System Specification</div>
+    <table class="quote-table" style="margin-bottom:20px">
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td>Total Load</td><td><strong>${fmt(r.totalLoad)} W</strong></td></tr>
+      <tr><td>Daily Energy Consumption</td><td><strong>${r.dailyKWh.toFixed(2)} kWh/day</strong></td></tr>
+      <tr><td>Solar Panel Capacity</td><td><strong>${fmt(r.panelW)} W (${audit.panelBrand})</strong></td></tr>
+      <tr><td>Battery Bank</td><td><strong>${r.batteryKWh.toFixed(1)} kWh (${audit.batteryType==='lithium'?'Lithium LiFePO4':'Lead-Acid'})</strong></td></tr>
+      <tr><td>Inverter Size</td><td><strong>${r.inverterKVA.toFixed(1)} kVA (${audit.inverterBrand})</strong></td></tr>
+      <tr><td>Backup Duration</td><td><strong>${audit.backupDays} day(s)</strong></td></tr>
+    </table>
+    <div class="quote-section-title">Cost Breakdown</div>
+    <table class="quote-table">
+      <tr><th>Item</th><th style="text-align:right">Amount (₦)</th></tr>
+      <tr><td>Solar Panels (${fmt(r.panelW)}W)</td><td style="text-align:right">${fmt(r.cPanels)}</td></tr>
+      <tr><td>Battery Bank (${r.batteryKWh.toFixed(1)} kWh)</td><td style="text-align:right">${fmt(r.cBattery)}</td></tr>
+      <tr><td>Inverter/Charger (${r.inverterKVA.toFixed(1)} kVA)</td><td style="text-align:right">${fmt(r.cInverter)}</td></tr>
+      <tr><td>Cabling &amp; Wiring</td><td style="text-align:right">${fmt(r.cCabling)}</td></tr>
+      <tr><td>Mounting Structure</td><td style="text-align:right">${fmt(r.cMounting)}</td></tr>
+      <tr><td>Accessories &amp; Protections</td><td style="text-align:right">${fmt(r.cAccessories)}</td></tr>
+      <tr><td>Installation &amp; Labour</td><td style="text-align:right">${fmt(r.cInstall)}</td></tr>
+    </table>
+    <div class="quote-total-section">
+      <div class="quote-total-row"><span>Equipment Subtotal</span><span>₦${fmt(r.equipTotal)}</span></div>
+      <div class="quote-total-row"><span>Installation (${state.config.installPct*100}%)</span><span>₦${fmt(r.cInstall)}</span></div>
+      ${audit.markup>0?`<div class="quote-total-row"><span>Margin (${audit.markup}%)</span><span>₦${fmt(r.markupAmt)}</span></div>`:''}
+      <div class="quote-total-final"><span>TOTAL INVESTMENT</span><span>₦${fmt(r.total)}</span></div>
+    </div>
+    <div class="quote-footer">
+      ${co.name} · ${co.address} · ${co.web}<br>
+      This quote is valid for 30 days from issue date. Prices subject to component availability.
+    </div>
+  </div>`;
+
+  const quote = {
+    id: qId,
+    auditId: audit.id,
+    clientName: audit.clientName,
+    total: r.total,
+    createdAt: new Date().toISOString(),
+    html: quoteHTML
+  };
+  state.quotes.unshift(quote);
+  saveToStorage();
+  updateBadges();
+
+  document.getElementById('modal-quote-body').innerHTML = quoteHTML;
+  document.getElementById('quote-modal').classList.add('open');
+  window._currentQuote = quote;
+}
+
+function buildCurrentAudit() {
+  return {
+    id: 'temp',
+    clientName: document.getElementById('client-name').value || 'Client',
+    clientPhone: document.getElementById('client-phone').value || '',
+    propertyType: document.getElementById('property-type').value,
+    location: document.getElementById('client-location').value,
+    usageHours: parseFloat(document.getElementById('usage-hours').value)||8,
+    gridHours: parseFloat(document.getElementById('grid-hours').value)||4,
+    backupDays: parseFloat(document.getElementById('backup-days').value)||1,
+    batteryType: document.getElementById('battery-type').value,
+    inverterBrand: document.getElementById('inverter-brand').value,
+    panelBrand: document.getElementById('panel-brand').value,
+    markup: parseFloat(document.getElementById('markup').value)||0,
+    appliances: { ...state.appliances },
+    result: calcSystem(state.appliances, {
+      usageHours: parseFloat(document.getElementById('usage-hours').value)||8,
+      backupDays: parseFloat(document.getElementById('backup-days').value)||1,
+      batteryType: document.getElementById('battery-type').value,
+      markup: parseFloat(document.getElementById('markup').value)||0
+    })
+  };
+}
+
+function generateQuoteFromModal() {
+  if (currentModalAudit) generateQuote(currentModalAudit);
+}
+
+// ============================================================
+// DOWNLOAD PDF
+// ============================================================
+function downloadPDF() {
+  if (!window._currentQuote) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const co = state.company;
+  const q = window._currentQuote;
+  const audit = state.audits.find(a=>a.id===q.auditId) || {};
+  const r = audit.result || {};
+  const fmt = n => Math.round(n||0).toLocaleString('en-NG');
+  let y = 20;
+
+  doc.setFillColor(249,115,22);
+  doc.rect(0,0,210,18,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('⚡ ' + co.name, 14, 12);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(co.phone + ' · ' + co.email, 14, 16.5);
+  doc.text('QUOTATION  ' + q.id, 196, 12, {align:'right'});
+  doc.text(new Date(q.createdAt).toLocaleDateString(), 196, 16.5, {align:'right'});
+  y = 28;
+
+  doc.setTextColor(30,30,30);
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text('Prepared For', 14, y);
+  doc.setFontSize(14); doc.text(q.clientName, 14, y+6);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.setTextColor(100,100,100);
+  doc.text((audit.clientPhone||'') + ' · ' + (audit.location||'') + ' · ' + (audit.propertyType||''), 14, y+12);
+  y += 22;
+
+  doc.setFillColor(249,115,22);
+  doc.rect(14, y, 182, 7, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text('SYSTEM SPECIFICATION', 16, y+4.5);
+  y += 10;
+
+  const specs = [
+    ['Total Load', fmt(r.totalLoad||0)+' W'],
+    ['Daily Energy', (r.dailyKWh||0).toFixed(2)+' kWh/day'],
+    ['Solar Panels', fmt(r.panelW||0)+' W'],
+    ['Battery Bank', (r.batteryKWh||0).toFixed(1)+' kWh ('+((audit.batteryType||'lithium')==='lithium'?'Lithium':'Lead-Acid')+')'],
+    ['Inverter', (r.inverterKVA||0).toFixed(1)+' kVA'],
+    ['Backup', (audit.backupDays||1)+' day(s)'],
+  ];
+  doc.setTextColor(30,30,30); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  specs.forEach(([l,v],i) => {
+    if(i%2===0)doc.setFillColor(250,250,250); else doc.setFillColor(255,255,255);
+    doc.rect(14,y,182,6,'F');
+    doc.text(l, 16, y+4); doc.setFont('helvetica','bold'); doc.text(v, 196, y+4,{align:'right'}); doc.setFont('helvetica','normal');
+    y+=6;
+  });
+  y+=6;
+
+  doc.setFillColor(249,115,22);
+  doc.rect(14,y,182,7,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.text('COST BREAKDOWN', 16, y+4.5);
+  doc.text('Amount (₦)', 196, y+4.5,{align:'right'}); y+=10;
+
+  const items = [
+    ['Solar Panels', r.cPanels],['Battery Bank', r.cBattery],['Inverter/Charger', r.cInverter],
+    ['Cabling & Wiring', r.cCabling],['Mounting Structure', r.cMounting],
+    ['Accessories', r.cAccessories],['Installation & Labour', r.cInstall],
+  ];
+  doc.setTextColor(30,30,30); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  items.forEach(([l,v],i) => {
+    if(i%2===0)doc.setFillColor(250,250,250); else doc.setFillColor(255,255,255);
+    doc.rect(14,y,182,6,'F');
+    doc.text(l,16,y+4); doc.text('₦'+fmt(v||0),196,y+4,{align:'right'}); y+=6;
+  });
+  y+=6;
+
+  doc.setFillColor(255,247,237);
+  doc.rect(14,y,182,22,'F');
+  doc.setDrawColor(249,115,22); doc.rect(14,y,182,22);
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(249,115,22);
+  doc.text('TOTAL INVESTMENT', 16, y+8);
+  doc.setFontSize(14); doc.text('₦'+fmt(r.total||0), 196, y+15,{align:'right'});
+  y+=30;
+
+  doc.setFontSize(7); doc.setTextColor(150,150,150); doc.setFont('helvetica','normal');
+  doc.text(co.name+' · '+co.address+' · '+co.web, 105, y, {align:'center'});
+  doc.text('Quote valid for 30 days from issue date. Prices subject to component availability.', 105, y+5, {align:'center'});
+
+  doc.save('Quote-'+q.id+'-'+q.clientName.replace(/\s+/g,'_')+'.pdf');
+}
+
+// ============================================================
+// RENDER LISTS
+// ============================================================
+function renderAuditsList() {
+  const container = document.getElementById('audits-list');
+  if (!state.audits.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No audits yet</div><div class="empty-sub">Create your first audit to see it here</div></div>`;
+    return;
+  }
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  container.innerHTML = state.audits.map(a => `
+    <div class="audit-item" onclick="openAuditModal('${a.id}')">
+      <div class="audit-icon">🏠</div>
+      <div class="audit-meta">
+        <div class="audit-title">${a.clientName}</div>
+        <div class="audit-sub">${a.propertyType} · ${a.location} · ${new Date(a.createdAt).toLocaleDateString()}</div>
+      </div>
+      <div class="audit-badges">
+        <span class="badge badge-orange">${fmt(a.result.totalLoad)}W</span>
+        <span class="badge badge-blue">${a.result.inverterKVA.toFixed(1)} kVA</span>
+        <span class="badge badge-green">₦${fmt(a.result.total)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderQuotesList() {
+  const container = document.getElementById('quotes-list');
+  if (!state.quotes.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">No quotes yet</div><div class="empty-sub">Generate a quote from a saved audit</div></div>`;
+    return;
+  }
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  container.innerHTML = state.quotes.map(q => `
+    <div class="audit-item" onclick="openQuoteModal('${q.id}')">
+      <div class="audit-icon">📄</div>
+      <div class="audit-meta">
+        <div class="audit-title">${q.clientName} — ${q.id}</div>
+        <div class="audit-sub">${new Date(q.createdAt).toLocaleDateString()}</div>
+      </div>
+      <div class="audit-badges">
+        <span class="badge badge-green">₦${fmt(q.total)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openAuditModal(id) {
+  const audit = state.audits.find(a=>a.id===id);
+  if (!audit) return;
+  currentModalAudit = audit;
+  const r = audit.result;
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  document.getElementById('modal-audit-title').textContent = audit.clientName + ' — ' + audit.propertyType;
+  document.getElementById('modal-audit-body').innerHTML = `
+    <div class="two-col" style="gap:16px">
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.06em;margin-bottom:8px">Client Details</div>
+        <div class="breakdown-item"><div class="breakdown-label">Phone</div><div style="color:var(--text)">${audit.clientPhone||'—'}</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Location</div><div style="color:var(--text)">${audit.location}</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Grid Hours</div><div style="color:var(--text)">${audit.gridHours}h/day</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Usage Hours</div><div style="color:var(--text)">${audit.usageHours}h/day</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Battery Type</div><div style="color:var(--text)">${audit.batteryType}</div></div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.06em;margin-bottom:8px">System Results</div>
+        <div class="breakdown-item"><div class="breakdown-label">Total Load</div><div class="breakdown-val">${fmt(r.totalLoad)} W</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Daily Energy</div><div class="breakdown-val">${r.dailyKWh.toFixed(2)} kWh</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Panel Capacity</div><div class="breakdown-val">${fmt(r.panelW)} W</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Battery Bank</div><div class="breakdown-val">${r.batteryKWh.toFixed(1)} kWh</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Inverter Size</div><div class="breakdown-val">${r.inverterKVA.toFixed(1)} kVA</div></div>
+      </div>
+    </div>
+    <div class="breakdown-total" style="margin-top:16px">
+      <div class="breakdown-total-label">Total Quote Value</div>
+      <div class="breakdown-total-val">₦${fmt(r.total)}</div>
+    </div>
+  `;
+  document.getElementById('audit-modal').classList.add('open');
+}
+
+function deleteAuditFromModal() {
+  if (!currentModalAudit) return;
+  if (!confirm('Delete audit for ' + currentModalAudit.clientName + '?')) return;
+  state.audits = state.audits.filter(a=>a.id!==currentModalAudit.id);
+  saveToStorage();
+  updateBadges();
+  closeModal('audit-modal');
+  renderAuditsList();
+  updateDashboard();
+}
+
+function openQuoteModal(id) {
+  const quote = state.quotes.find(q=>q.id===id);
+  if (!quote) return;
+  window._currentQuote = quote;
+  document.getElementById('modal-quote-body').innerHTML = quote.html;
+  document.getElementById('quote-modal').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// ============================================================
+// PRICING ENGINE
+// ============================================================
+const PRICE_LABELS = {
+  panelPerWatt:        { label:'Solar Panels', unit:'per Watt' },
+  batteryLithiumPerKWh:{ label:'Battery (Lithium LiFePO4)', unit:'per kWh' },
+  batteryLeadPerKWh:   { label:'Battery (Lead-Acid)', unit:'per kWh' },
+  inverterPerKVA:      { label:'Inverter / Charger', unit:'per kVA' },
+  cabling:             { label:'Cabling & Wiring', unit:'flat' },
+  mounting:            { label:'Mounting Structure', unit:'flat' },
+  accessories:         { label:'Accessories & Protection', unit:'flat' },
+};
+
+function renderPriceTable() {
+  const tab = state.activePriceTab;
+  const prices = state.prices[tab];
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  let html = `
+    <div class="price-row header">
+      <div>Component</div>
+      <div>Unit</div>
+      <div>Price (₦)</div>
+      <div>Dealer Ref (₦)</div>
+      <div></div>
+    </div>
+  `;
+  Object.entries(PRICE_LABELS).forEach(([key, info]) => {
+    html += `
+      <div class="price-row">
+        <div style="color:var(--text);font-weight:500">${info.label}</div>
+        <div style="color:var(--text3);font-size:12px">${info.unit}</div>
+        <div><input class="price-input-sm" type="number" id="price-${tab}-${key}" value="${prices[key]||0}"></div>
+        <div style="color:var(--text3);font-size:12px">₦${fmt(state.prices.dealer[key]||0)}</div>
+        <div></div>
+      </div>
+    `;
+  });
+  document.getElementById('price-table-container').innerHTML = `<div class="card" style="padding:0 24px"><div style="padding:16px 0">${html}</div></div>`;
+}
+
+function switchPriceTab(tab) {
+  state.activePriceTab = tab;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='user'?0:1)));
+  renderPriceTable();
+}
+
+function savePrices() {
+  const tab = state.activePriceTab;
+  Object.keys(PRICE_LABELS).forEach(key => {
+    const el = document.getElementById(`price-${tab}-${key}`);
+    if (el) state.prices[tab][key] = parseFloat(el.value)||0;
+  });
+  saveToStorage();
+  recalculate();
+  alert('✅ Prices saved');
+}
+
+function resetPrices() {
+  if (!confirm('Reset all prices to defaults?')) return;
+  state.prices = JSON.parse(JSON.stringify(DEFAULT_PRICES));
+  saveToStorage();
+  renderPriceTable();
+  recalculate();
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function populateSettingsForm() {
+  const co = state.company;
+  const cfg = state.config;
+  document.getElementById('co-name').value = co.name||'';
+  document.getElementById('co-address').value = co.address||'';
+  document.getElementById('co-phone').value = co.phone||'';
+  document.getElementById('co-email').value = co.email||'';
+  document.getElementById('co-web').value = co.web||'';
+  document.getElementById('cfg-sun').value = cfg.sunHours||4.5;
+  document.getElementById('cfg-install').value = (cfg.installPct||0.12)*100;
+  document.getElementById('cfg-dod').value = cfg.dodLithium||1.25;
+  document.getElementById('cfg-dod-la').value = cfg.dodLead||2.0;
+}
+
+function saveSettings() {
+  state.company = {
+    name: document.getElementById('co-name').value,
+    address: document.getElementById('co-address').value,
+    phone: document.getElementById('co-phone').value,
+    email: document.getElementById('co-email').value,
+    web: document.getElementById('co-web').value,
+  };
+  state.config = {
+    sunHours: parseFloat(document.getElementById('cfg-sun').value)||4.5,
+    installPct: (parseFloat(document.getElementById('cfg-install').value)||12)/100,
+    dodLithium: parseFloat(document.getElementById('cfg-dod').value)||1.25,
+    dodLead: parseFloat(document.getElementById('cfg-dod-la').value)||2.0,
+  };
+  saveToStorage();
+  recalculate();
+  alert('✅ Settings saved');
+}
+
+function exportData() {
+  const data = JSON.stringify({ audits: state.audits, quotes: state.quotes, prices: state.prices }, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'solariq-data.json';
+  a.click();
+}
+
+function clearAllData() {
+  if (!confirm('This will delete ALL audits and quotes. Are you sure?')) return;
+  state.audits = [];
+  state.quotes = [];
+  saveToStorage();
+  updateBadges();
+  updateDashboard();
+  alert('Data cleared');
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function updateDashboard() {
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  const n = state.audits.length;
+  const totalRev = state.audits.reduce((s,a)=>s+(a.result?.total||0),0);
+  const avgSize = n ? state.audits.reduce((s,a)=>s+(a.result?.panelW||0),0)/n/1000 : 0;
+  const qCount = state.quotes.length;
+  document.getElementById('dash-total').textContent = n;
+  document.getElementById('dash-revenue').textContent = '₦'+fmt(totalRev);
+  document.getElementById('dash-avg-size').textContent = avgSize.toFixed(1)+' kW';
+  document.getElementById('dash-quotes').textContent = qCount;
+
+  const recent = document.getElementById('dash-recent');
+  if (!n) {
+    recent.innerHTML = `<div class="empty-state" style="padding:30px 0"><div class="empty-icon">📋</div><div class="empty-title">No audits yet</div><div class="empty-sub">Start a new audit to see it here</div></div>`;
+  } else {
+    recent.innerHTML = state.audits.slice(0,4).map(a=>`
+      <div class="audit-item" onclick="openAuditModal('${a.id}')" style="padding:12px">
+        <div class="audit-icon" style="width:32px;height:32px;font-size:14px">🏠</div>
+        <div class="audit-meta">
+          <div class="audit-title" style="font-size:13px">${a.clientName}</div>
+          <div class="audit-sub">${a.propertyType} · ₦${fmt(a.result.total)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function updateBadges() {
+  document.getElementById('audit-count').textContent = state.audits.length;
+  document.getElementById('quote-count').textContent = state.quotes.length;
+}
+
+// ============================================================
+// LISTENERS
+// ============================================================
+document.querySelectorAll('#usage-hours,#backup-days,#battery-type,#markup').forEach(el => {
+  el && el.addEventListener('input', recalculate);
+});
+
+// ============================================================
+// BOOT
+// ============================================================
+init();
+</script>
+</body>
+</html>

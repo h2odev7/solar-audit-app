@@ -462,6 +462,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-label">Battery Capacity (Wh)<span>Capacity Ah × Voltage</span></div>
           <div class="breakdown-val" id="calc-batt-wh">0 Wh</div>
         </div>
+        <div class="breakdown-item" style="background:rgba(249,115,22,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">Total Battery Energy<span>Batteries × Indiv. Ah × Voltage</span></div>
+          <div class="breakdown-val" style="color:var(--accent)" id="calc-total-batt-energy">0 Wh</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Solar Power Needed<span>Total Battery Energy ÷ Sun hrs</span></div>
+          <div class="breakdown-val" id="calc-solar-power">0 W</div>
+        </div>
         <div class="breakdown-item">
           <div class="breakdown-label">Battery Runtime<span>Capacity × Autonomy × 24</span></div>
           <div class="breakdown-val" id="calc-batt-runtime">0 hrs</div>
@@ -882,6 +890,12 @@ function calcSystem(appliances, opts) {
   // Battery Capacity (Wh) = Battery Capacity (Ah) × Battery Voltage (V)
   const battCapacityWh = battCapacityAh * cfg.battVoltage;
 
+  // Total Energy from Battery Bank (Wh) = Total Batteries × Individual Battery Ah × Voltage
+  const totalBattEnergyWh = totalBatteries * (cfg.individualBattAh || 200) * cfg.battVoltage;
+
+  // Solar Power Needed (W) = Total Battery Energy (Wh) ÷ Peak Sun Hours
+  const solarPowerW = totalBattEnergyWh / cfg.sunHours;
+
   const batteryPrice = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
   const cPanels = panelW * prices.panelPerWatt;
   const cBattery = batteryKWh * batteryPrice;
@@ -895,7 +909,7 @@ function calcSystem(appliances, opts) {
   const markupAmt = subtotal * markup;
   const total = subtotal + markupAmt;
 
-  return { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+  return { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, totalBattEnergyWh, solarPowerW, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
 }
 
 function recalculate() {
@@ -928,6 +942,8 @@ function recalculate() {
   document.getElementById('calc-battery').textContent = r.batteryKWh.toFixed(1) + ' kWh';
   document.getElementById('calc-batt-ah').textContent = Math.ceil(r.battCapacityAh) + ' Ah  @' + (state.config.battVoltage||48) + 'V';
   document.getElementById('calc-batt-wh').textContent = fmt(Math.round(r.battCapacityWh)) + ' Wh  (' + (r.battCapacityWh/1000).toFixed(2) + ' kWh)';
+  document.getElementById('calc-total-batt-energy').textContent = fmt(Math.round(r.totalBattEnergyWh)) + ' Wh  (' + (r.totalBattEnergyWh/1000).toFixed(2) + ' kWh)';
+  document.getElementById('calc-solar-power').textContent = fmt(Math.round(r.solarPowerW)) + ' W  (' + (r.solarPowerW/1000).toFixed(2) + ' kW)';
   document.getElementById('calc-batt-runtime').textContent = Math.round(r.battRuntimeHrs).toLocaleString() + ' hrs';
   document.getElementById('calc-total-batts').textContent = r.totalBatteries + ' batteries  (' + (state.config.individualBattAh||200) + 'Ah each)';
   document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(1) + ' kVA';
@@ -1012,6 +1028,8 @@ function generateQuote(auditOverride) {
       <tr><td>Battery Capacity (Wh)</td><td><strong>${fmt(Math.round(r.battCapacityWh||0))} Wh &nbsp;/&nbsp; ${((r.battCapacityWh||0)/1000).toFixed(2)} kWh</strong></td></tr>
       <tr><td>Battery Runtime (no charging)</td><td><strong>${Math.round(r.battRuntimeHrs||0).toLocaleString()} hrs</strong></td></tr>
       <tr><td>Total Batteries Required</td><td><strong>${r.totalBatteries||0} × ${state.config.individualBattAh||200}Ah battery</strong></td></tr>
+      <tr><td>Total Battery Bank Energy</td><td><strong>${fmt(Math.round(r.totalBattEnergyWh||0))} Wh &nbsp;/&nbsp; ${((r.totalBattEnergyWh||0)/1000).toFixed(2)} kWh</strong></td></tr>
+      <tr style="background:#fff7ed"><td><strong>Solar Power Required</strong><br><span style="font-size:11px;color:#9ca3af">Battery Energy ÷ Peak Sun Hours</span></td><td><strong>${fmt(Math.round(r.solarPowerW||0))} W &nbsp;/&nbsp; ${((r.solarPowerW||0)/1000).toFixed(2)} kW</strong></td></tr>
       <tr><td>Inverter Size</td><td><strong>${r.inverterKVA.toFixed(1)} kVA (${audit.inverterBrand})</strong></td></tr>
       <tr><td>Backup Duration</td><td><strong>${audit.backupDays} day(s)</strong></td></tr>
     </table>
@@ -1247,6 +1265,8 @@ function openAuditModal(id) {
         <div class="breakdown-item"><div class="breakdown-label">Battery Capacity (Wh)</div><div class="breakdown-val">${fmt(Math.round(r.battCapacityWh||0))} Wh</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Battery Runtime</div><div class="breakdown-val">${Math.round(r.battRuntimeHrs||0).toLocaleString()} hrs</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Total Batteries</div><div class="breakdown-val">${r.totalBatteries||0} units</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Total Battery Energy</div><div class="breakdown-val">${fmt(Math.round(r.totalBattEnergyWh||0))} Wh</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Solar Power Needed</div><div class="breakdown-val" style="color:var(--accent)">${fmt(Math.round(r.solarPowerW||0))} W</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Inverter Size</div><div class="breakdown-val">${r.inverterKVA.toFixed(1)} kVA</div></div>
       </div>
     </div>

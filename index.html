@@ -459,8 +459,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-val" style="color:var(--blue)" id="calc-batt-ah">0 Ah</div>
         </div>
         <div class="breakdown-item">
+          <div class="breakdown-label">Battery Capacity (Wh)<span>Capacity Ah × Voltage</span></div>
+          <div class="breakdown-val" id="calc-batt-wh">0 Wh</div>
+        </div>
+        <div class="breakdown-item">
           <div class="breakdown-label">Battery Runtime<span>Capacity × Autonomy × 24</span></div>
           <div class="breakdown-val" id="calc-batt-runtime">0 hrs</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Total Batteries<span>Capacity ÷ individual Ah</span></div>
+          <div class="breakdown-val" id="calc-total-batts">0 batteries</div>
         </div>
         <div class="breakdown-item">
           <div class="breakdown-label">Inverter Size<span>1.25× peak load</span></div>
@@ -571,6 +579,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="form-group"><label class="form-label">Battery Efficiency</label>
         <input type="number" class="form-input" id="cfg-batt-eff" value="0.95" min="0.5" max="1" step="0.01">
       </div>
+      <div class="form-group"><label class="form-label">Individual Battery Capacity (Ah)</label>
+        <input type="number" class="form-input" id="cfg-indiv-batt-ah" value="200" min="1">
+      </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save Config</button>
     </div>
   </div>
@@ -664,7 +675,8 @@ const DEFAULT_CONFIG = {
   dodLead: 2.0,
   battVoltage: 48,
   battDod: 0.80,
-  battEfficiency: 0.95
+  battEfficiency: 0.95,
+  individualBattAh: 200
 };
 
 const DEFAULT_COMPANY = {
@@ -864,6 +876,12 @@ function calcSystem(appliances, opts) {
   // Battery Runtime (hrs) = Battery Capacity (Ah) × Days of Autonomy × 24
   const battRuntimeHrs = battCapacityAh * backupDays * 24;
 
+  // Total Batteries = ceil(Battery Capacity (Ah) / Individual Battery Capacity (Ah))
+  const totalBatteries = Math.ceil(battCapacityAh / (cfg.individualBattAh || 200));
+
+  // Battery Capacity (Wh) = Battery Capacity (Ah) × Battery Voltage (V)
+  const battCapacityWh = battCapacityAh * cfg.battVoltage;
+
   const batteryPrice = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
   const cPanels = panelW * prices.panelPerWatt;
   const cBattery = batteryKWh * batteryPrice;
@@ -877,7 +895,7 @@ function calcSystem(appliances, opts) {
   const markupAmt = subtotal * markup;
   const total = subtotal + markupAmt;
 
-  return { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, battCapacityAh, battRuntimeHrs, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+  return { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
 }
 
 function recalculate() {
@@ -909,7 +927,9 @@ function recalculate() {
   document.getElementById('calc-panel').textContent = fmt(r.panelW) + ' W';
   document.getElementById('calc-battery').textContent = r.batteryKWh.toFixed(1) + ' kWh';
   document.getElementById('calc-batt-ah').textContent = Math.ceil(r.battCapacityAh) + ' Ah  @' + (state.config.battVoltage||48) + 'V';
+  document.getElementById('calc-batt-wh').textContent = fmt(Math.round(r.battCapacityWh)) + ' Wh  (' + (r.battCapacityWh/1000).toFixed(2) + ' kWh)';
   document.getElementById('calc-batt-runtime').textContent = Math.round(r.battRuntimeHrs).toLocaleString() + ' hrs';
+  document.getElementById('calc-total-batts').textContent = r.totalBatteries + ' batteries  (' + (state.config.individualBattAh||200) + 'Ah each)';
   document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(1) + ' kVA';
   document.getElementById('calc-equip').textContent = '₦' + fmt(r.equipTotal);
   document.getElementById('calc-install').textContent = '₦' + fmt(r.cInstall);
@@ -989,7 +1009,9 @@ function generateQuote(auditOverride) {
       <tr><td>Solar Panel Capacity</td><td><strong>${fmt(r.panelW)} W (${audit.panelBrand})</strong></td></tr>
       <tr><td>Battery Bank</td><td><strong>${r.batteryKWh.toFixed(1)} kWh (${audit.batteryType==='lithium'?'Lithium LiFePO4':'Lead-Acid'})</strong></td></tr>
       <tr><td>Battery Capacity</td><td><strong>${Math.ceil(r.battCapacityAh||0)} Ah @ ${state.config.battVoltage||48}V</strong></td></tr>
+      <tr><td>Battery Capacity (Wh)</td><td><strong>${fmt(Math.round(r.battCapacityWh||0))} Wh &nbsp;/&nbsp; ${((r.battCapacityWh||0)/1000).toFixed(2)} kWh</strong></td></tr>
       <tr><td>Battery Runtime (no charging)</td><td><strong>${Math.round(r.battRuntimeHrs||0).toLocaleString()} hrs</strong></td></tr>
+      <tr><td>Total Batteries Required</td><td><strong>${r.totalBatteries||0} × ${state.config.individualBattAh||200}Ah battery</strong></td></tr>
       <tr><td>Inverter Size</td><td><strong>${r.inverterKVA.toFixed(1)} kVA (${audit.inverterBrand})</strong></td></tr>
       <tr><td>Backup Duration</td><td><strong>${audit.backupDays} day(s)</strong></td></tr>
     </table>
@@ -1222,7 +1244,9 @@ function openAuditModal(id) {
         <div class="breakdown-item"><div class="breakdown-label">Panel Capacity</div><div class="breakdown-val">${fmt(r.panelW)} W</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Battery Bank</div><div class="breakdown-val">${r.batteryKWh.toFixed(1)} kWh</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Battery Capacity</div><div class="breakdown-val" style="color:var(--blue)">${Math.ceil(r.battCapacityAh||0)} Ah</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Battery Capacity (Wh)</div><div class="breakdown-val">${fmt(Math.round(r.battCapacityWh||0))} Wh</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Battery Runtime</div><div class="breakdown-val">${Math.round(r.battRuntimeHrs||0).toLocaleString()} hrs</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Total Batteries</div><div class="breakdown-val">${r.totalBatteries||0} units</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Inverter Size</div><div class="breakdown-val">${r.inverterKVA.toFixed(1)} kVA</div></div>
       </div>
     </div>
@@ -1340,6 +1364,7 @@ function populateSettingsForm() {
   document.getElementById('cfg-batt-voltage').value = cfg.battVoltage||48;
   document.getElementById('cfg-batt-dod').value = cfg.battDod||0.80;
   document.getElementById('cfg-batt-eff').value = cfg.battEfficiency||0.95;
+  document.getElementById('cfg-indiv-batt-ah').value = cfg.individualBattAh||200;
 }
 
 function saveSettings() {
@@ -1358,6 +1383,7 @@ function saveSettings() {
     battVoltage: parseFloat(document.getElementById('cfg-batt-voltage').value)||48,
     battDod: parseFloat(document.getElementById('cfg-batt-dod').value)||0.80,
     battEfficiency: parseFloat(document.getElementById('cfg-batt-eff').value)||0.95,
+    individualBattAh: parseFloat(document.getElementById('cfg-indiv-batt-ah').value)||200,
   };
   saveToStorage();
   recalculate();

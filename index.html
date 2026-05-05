@@ -439,11 +439,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-val" id="calc-load">0 W</div>
         </div>
         <div class="breakdown-item">
-          <div class="breakdown-label">Daily Energy<span>Load × usage hours</span></div>
-          <div class="breakdown-val" id="calc-daily">0 kWh</div>
+          <div class="breakdown-label">Total Energy Demand<span>Σ (Device Load × Hours)</span></div>
+          <div class="breakdown-val" id="calc-daily">0 Wh</div>
+        </div>
+        <div class="breakdown-item" style="background:rgba(249,115,22,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">Adjusted Energy Demand<span>+20% system losses</span></div>
+          <div class="breakdown-val" style="color:var(--accent)" id="calc-adjusted">0 Wh</div>
         </div>
         <div class="breakdown-item">
-          <div class="breakdown-label">Panel Capacity<span>Daily ÷ 4.5 sun hrs</span></div>
+          <div class="breakdown-label">Panel Capacity<span>Adjusted ÷ sun hrs</span></div>
           <div class="breakdown-val" id="calc-panel">0 W</div>
         </div>
         <div class="breakdown-item">
@@ -753,9 +757,14 @@ function renderApplianceGrid() {
       <tbody>${rows}</tbody>
       <tfoot>
         <tr class="appl-totals-row">
-          <td colspan="3" style="color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.05em">Totals</td>
-          <td><span style="color:var(--text);font-family:monospace" id="tfoot-load">0 W</span></td>
-          <td><span style="color:var(--accent);font-family:monospace" id="tfoot-energy">0 Wh</span></td>
+          <td colspan="3" style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Total Load / Total Energy</td>
+          <td><span style="color:var(--text);font-family:monospace;font-size:13px" id="tfoot-load">0 W</span></td>
+          <td><span style="color:var(--text2);font-family:monospace;font-size:13px" id="tfoot-energy">0 Wh</span></td>
+        </tr>
+        <tr style="background:rgba(249,115,22,.07)">
+          <td colspan="3" style="color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;font-weight:700">Adjusted Energy Demand <span style="font-size:10px;opacity:.7">(+20% system loss)</span></td>
+          <td></td>
+          <td><span style="color:var(--accent);font-family:monospace;font-size:14px;font-weight:700" id="tfoot-adjusted">0 Wh</span></td>
         </tr>
       </tfoot>
     </table>`;
@@ -811,10 +820,14 @@ function calcSystem(appliances, opts) {
 
   const totalEnergyKWh = totalEnergyWh / 1000;
 
-  // System sizing from Total Energy Demanded
-  const panelW = Math.ceil((totalEnergyKWh / cfg.sunHours) * 1000 / 50) * 50;
+  // 20% system loss → Adjusted Energy Demand
+  const adjustedEnergyWh  = totalEnergyWh * 1.20;
+  const adjustedEnergyKWh = adjustedEnergyWh / 1000;
+
+  // System sizing from Adjusted Energy Demand
+  const panelW = Math.ceil((adjustedEnergyKWh / cfg.sunHours) * 1000 / 50) * 50;
   const dod = batteryType === 'lithium' ? cfg.dodLithium : cfg.dodLead;
-  const batteryKWh = Math.ceil(totalEnergyKWh * backupDays * dod * 10) / 10;
+  const batteryKWh = Math.ceil(adjustedEnergyKWh * backupDays * dod * 10) / 10;
   const inverterKVA = Math.ceil((totalLoad / 1000) * 1.25 * 10) / 10;
 
   const batteryPrice = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
@@ -830,7 +843,7 @@ function calcSystem(appliances, opts) {
   const markupAmt = subtotal * markup;
   const total = subtotal + markupAmt;
 
-  return { totalLoad, totalEnergyWh, totalEnergyKWh, panelW, batteryKWh, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+  return { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
 }
 
 function recalculate() {
@@ -848,14 +861,17 @@ function recalculate() {
   const tfEnergy = document.getElementById('tfoot-energy');
   if (tfLoad) tfLoad.textContent = fmt(r.totalLoad) + ' W';
   if (tfEnergy) tfEnergy.textContent = fmt(r.totalEnergyWh) + ' Wh';
+  const tfAdj = document.getElementById('tfoot-adjusted');
+  if (tfAdj) tfAdj.textContent = fmt(r.adjustedEnergyWh) + ' Wh  /  ' + r.adjustedEnergyKWh.toFixed(2) + ' kWh';
 
   // Update badge
   const badge = document.getElementById('total-load-badge');
-  if (badge) badge.textContent = fmt(r.totalLoad) + 'W · ' + r.totalEnergyKWh.toFixed(2) + ' kWh';
+  if (badge) badge.textContent = fmt(r.totalLoad) + 'W load · ' + r.adjustedEnergyKWh.toFixed(2) + ' kWh adjusted';
 
   // Update calc panel
   document.getElementById('calc-load').textContent = fmt(r.totalLoad) + ' W';
   document.getElementById('calc-daily').textContent = r.totalEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.totalEnergyWh) + ' Wh)';
+  document.getElementById('calc-adjusted').textContent = r.adjustedEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.adjustedEnergyWh) + ' Wh)';
   document.getElementById('calc-panel').textContent = fmt(r.panelW) + ' W';
   document.getElementById('calc-battery').textContent = r.batteryKWh.toFixed(1) + ' kWh';
   document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(1) + ' kVA';
@@ -932,7 +948,8 @@ function generateQuote(auditOverride) {
     <table class="quote-table" style="margin-bottom:20px">
       <tr><th>Parameter</th><th>Value</th></tr>
       <tr><td>Total Load</td><td><strong>${fmt(r.totalLoad)} W</strong></td></tr>
-      <tr><td>Total Energy Demanded</td><td><strong>${fmt(r.totalEnergyWh)} Wh / ${(r.totalEnergyKWh||0).toFixed(2)} kWh/day</strong></td></tr>
+      <tr><td>Total Energy Demand</td><td>${fmt(r.totalEnergyWh)} Wh / ${(r.totalEnergyKWh||0).toFixed(2)} kWh</td></tr>
+      <tr style="background:#fff7ed"><td><strong>Adjusted Energy Demand</strong><br><span style="font-size:11px;color:#9ca3af">+20% system losses</span></td><td><strong>${fmt(r.adjustedEnergyWh||0)} Wh / ${(r.adjustedEnergyKWh||0).toFixed(2)} kWh</strong></td></tr>
       <tr><td>Solar Panel Capacity</td><td><strong>${fmt(r.panelW)} W (${audit.panelBrand})</strong></td></tr>
       <tr><td>Battery Bank</td><td><strong>${r.batteryKWh.toFixed(1)} kWh (${audit.batteryType==='lithium'?'Lithium LiFePO4':'Lead-Acid'})</strong></td></tr>
       <tr><td>Inverter Size</td><td><strong>${r.inverterKVA.toFixed(1)} kVA (${audit.inverterBrand})</strong></td></tr>

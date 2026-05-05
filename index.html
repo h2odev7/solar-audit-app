@@ -116,18 +116,23 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .data-table td.mono { font-family: monospace; font-size: 13px; color: var(--text); }
 .data-table td.bold { color: var(--text); font-weight: 600; }
 
-/* APPLIANCE GRID */
-.appliance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.appliance-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: border .15s; }
-.appliance-card:hover { border-color: var(--border2); }
-.appliance-header { display: flex; justify-content: space-between; align-items: center; }
-.appliance-name { font-size: 13px; font-weight: 600; color: var(--text); }
-.appliance-watts { font-size: 11px; color: var(--text3); }
-.appliance-qty { display: flex; align-items: center; gap: 8px; }
-.qty-btn { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border2); background: var(--surface3); color: var(--text); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .1s; }
+/* APPLIANCE TABLE */
+.appl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.appl-table th { text-align: left; padding: 8px 10px; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border2); }
+.appl-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.appl-table tr:last-child td { border-bottom: none; }
+.appl-table tr:hover td { background: rgba(255,255,255,.015); }
+.appl-name { font-weight: 600; color: var(--text); font-size: 13px; }
+.appl-watts-badge { display: inline-block; font-size: 10px; color: var(--text3); background: var(--surface3); padding: 1px 6px; border-radius: 4px; margin-left: 5px; }
+.appl-qty-ctrl { display: flex; align-items: center; gap: 6px; }
+.qty-btn { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border2); background: var(--surface3); color: var(--text); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all .1s; flex-shrink: 0; }
 .qty-btn:hover { background: var(--accent); border-color: var(--accent); }
-.qty-val { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text); min-width: 20px; text-align: center; }
-.appliance-subtotal { font-size: 11px; color: var(--accent); font-weight: 600; }
+.qty-val { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); min-width: 18px; text-align: center; }
+.hours-input { width: 54px; padding: 5px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: var(--font-body); font-size: 13px; text-align: center; outline: none; }
+.hours-input:focus { border-color: var(--accent); }
+.appl-device-load { font-size: 12px; color: var(--text2); font-family: monospace; }
+.appl-energy { font-size: 12px; color: var(--accent); font-weight: 600; font-family: monospace; }
+.appl-totals-row td { padding: 10px; background: var(--surface2); font-weight: 700; border-top: 2px solid var(--border2); }
 
 /* BREAKDOWN */
 .breakdown-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -221,7 +226,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .nav-item{justify-content:center;padding:12px;}
   .page{padding:20px 16px;}
   .stats-grid{grid-template-columns:1fr 1fr;}
-  .appliance-grid{grid-template-columns:1fr 1fr;}
   .two-col,.col-6040{grid-template-columns:1fr;}
 }
 </style>
@@ -365,22 +369,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
             </select>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Grid Availability (hrs/day)</label>
-            <input type="number" class="form-input" id="grid-hours" value="4" min="0" max="24">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Usage Hours / Day</label>
-            <input type="number" class="form-input" id="usage-hours" value="8" min="1" max="24">
-          </div>
+        <div class="form-group">
+          <label class="form-label">Grid Availability (hrs/day)</label>
+          <input type="number" class="form-input" id="grid-hours" value="4" min="0" max="24">
         </div>
       </div>
 
       <!-- APPLIANCES -->
       <div class="card" style="margin-bottom:20px">
-        <div class="card-title">Appliance Load <span class="badge" id="total-load-badge">0W total</span></div>
-        <div class="appliance-grid" id="appliance-grid"></div>
+        <div class="card-title">Appliance Load <span class="badge" id="total-load-badge">0W · 0 Wh</span></div>
+        <div id="appliance-grid"></div>
       </div>
 
       <!-- SYSTEM PARAMS -->
@@ -593,15 +591,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 // DATA MODELS
 // ============================================================
 const DEFAULT_APPLIANCES = [
-  { id:'ac',     name:'AC Unit',    watts:1500, icon:'❄️' },
-  { id:'fridge', name:'Fridge',     watts:300,  icon:'🧊' },
-  { id:'tv',     name:'TV',         watts:120,  icon:'📺' },
-  { id:'fan',    name:'Fan',        watts:75,   icon:'💨' },
-  { id:'laptop', name:'Laptop',     watts:65,   icon:'💻' },
-  { id:'light',  name:'LED Light',  watts:15,   icon:'💡' },
-  { id:'pump',   name:'Water Pump', watts:750,  icon:'🚿' },
-  { id:'blender',name:'Blender',    watts:400,  icon:'🔌' },
-  { id:'iron',   name:'Iron',       watts:1000, icon:'👔' },
+  { id:'ac1hp',   name:'AC (1hp)',         watts:750,  icon:'❄️', defaultHours:6  },
+  { id:'ac15hp',  name:'AC (1.5hp)',       watts:1250, icon:'❄️', defaultHours:6  },
+  { id:'ac2hp',   name:'AC (2hp)',         watts:1500, icon:'❄️', defaultHours:6  },
+  { id:'fridge',  name:'Fridge / Freezer', watts:150,  icon:'🧊', defaultHours:24 },
+  { id:'tv',      name:'TV',               watts:100,  icon:'📺', defaultHours:6  },
+  { id:'fan',     name:'Fan',              watts:100,  icon:'💨', defaultHours:8  },
+  { id:'laptop',  name:'Laptop',           watts:65,   icon:'💻', defaultHours:6  },
+  { id:'light',   name:'LED Light',        watts:15,   icon:'💡', defaultHours:6  },
+  { id:'pump',    name:'Water Pump',       watts:750,  icon:'🚿', defaultHours:2  },
+  { id:'washing', name:'Washing Machine',  watts:800,  icon:'🫧', defaultHours:1  },
+  { id:'blender', name:'Blender',          watts:400,  icon:'🔌', defaultHours:1  },
+  { id:'iron',    name:'Iron',             watts:1000, icon:'👔', defaultHours:1  },
+  { id:'mobile',  name:'Mobile Charger',   watts:5,    icon:'📱', defaultHours:4  },
+  { id:'misc',    name:'Miscellaneous',    watts:100,  icon:'⚡', defaultHours:4  },
 ];
 
 const DEFAULT_PRICES = {
@@ -678,7 +681,9 @@ function loadFromStorage() {
     state.config = parsed.config || { ...DEFAULT_CONFIG };
     state.company = parsed.company || { ...DEFAULT_COMPANY };
   }
-  DEFAULT_APPLIANCES.forEach(a => { state.appliances[a.id] = 0; });
+  DEFAULT_APPLIANCES.forEach(a => {
+    if (state.appliances[a.id] === undefined) state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
+  });
 }
 
 function saveToStorage() {
@@ -710,56 +715,106 @@ function showPage(id) {
 }
 
 // ============================================================
-// APPLIANCE GRID
+// APPLIANCE TABLE
 // ============================================================
 function renderApplianceGrid() {
   const grid = document.getElementById('appliance-grid');
-  grid.innerHTML = DEFAULT_APPLIANCES.map(a => `
-    <div class="appliance-card">
-      <div class="appliance-header">
-        <div>
-          <div class="appliance-name">${a.icon} ${a.name}</div>
-          <div class="appliance-watts">${a.watts}W each</div>
+  const rows = DEFAULT_APPLIANCES.map(a => {
+    const d = state.appliances[a.id] || { qty: 0, hours: a.defaultHours };
+    const deviceLoad = d.qty * a.watts;
+    const deviceEnergy = deviceLoad * d.hours;
+    return `
+    <tr id="row-${a.id}">
+      <td><span class="appl-name">${a.icon} ${a.name}</span><span class="appl-watts-badge">${a.watts}W</span></td>
+      <td>
+        <div class="appl-qty-ctrl">
+          <button class="qty-btn" onclick="adjustQty('${a.id}',-1)">−</button>
+          <div class="qty-val" id="qty-${a.id}">${d.qty}</div>
+          <button class="qty-btn" onclick="adjustQty('${a.id}',1)">+</button>
         </div>
-      </div>
-      <div class="appliance-qty">
-        <button class="qty-btn" onclick="adjustQty('${a.id}',-1)">−</button>
-        <div class="qty-val" id="qty-${a.id}">${state.appliances[a.id]||0}</div>
-        <button class="qty-btn" onclick="adjustQty('${a.id}',1)">+</button>
-      </div>
-      <div class="appliance-subtotal" id="sub-${a.id}">${(state.appliances[a.id]||0)*a.watts} W</div>
-    </div>
-  `).join('');
+      </td>
+      <td><input class="hours-input" type="number" id="hrs-${a.id}" value="${d.hours}" min="0" max="24" onchange="updateHours('${a.id}',this.value)"></td>
+      <td><span class="appl-device-load" id="dload-${a.id}">${deviceLoad} W</span></td>
+      <td><span class="appl-energy" id="denergy-${a.id}">${deviceEnergy} Wh</span></td>
+    </tr>`;
+  }).join('');
+
+  grid.innerHTML = `
+    <table class="appl-table">
+      <thead>
+        <tr>
+          <th>Device</th>
+          <th>Qty</th>
+          <th>Hrs/day</th>
+          <th>Device Load (W)</th>
+          <th>Energy (Wh)</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr class="appl-totals-row">
+          <td colspan="3" style="color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.05em">Totals</td>
+          <td><span style="color:var(--text);font-family:monospace" id="tfoot-load">0 W</span></td>
+          <td><span style="color:var(--accent);font-family:monospace" id="tfoot-energy">0 Wh</span></td>
+        </tr>
+      </tfoot>
+    </table>`;
 }
 
 function adjustQty(id, delta) {
-  state.appliances[id] = Math.max(0, (state.appliances[id]||0) + delta);
-  document.getElementById('qty-'+id).textContent = state.appliances[id];
-  const watts = DEFAULT_APPLIANCES.find(a=>a.id===id).watts;
-  document.getElementById('sub-'+id).textContent = (state.appliances[id]*watts) + ' W';
+  const d = state.appliances[id];
+  d.qty = Math.max(0, d.qty + delta);
+  document.getElementById('qty-'+id).textContent = d.qty;
+  updateRowCalc(id);
   recalculate();
 }
 
+function updateHours(id, val) {
+  state.appliances[id].hours = Math.max(0, Math.min(24, parseFloat(val)||0));
+  updateRowCalc(id);
+  recalculate();
+}
+
+function updateRowCalc(id) {
+  const a = DEFAULT_APPLIANCES.find(x=>x.id===id);
+  const d = state.appliances[id];
+  const deviceLoad = d.qty * a.watts;
+  const deviceEnergy = deviceLoad * d.hours;
+  document.getElementById('dload-'+id).textContent = deviceLoad + ' W';
+  document.getElementById('denergy-'+id).textContent = deviceEnergy + ' Wh';
+}
+
 // ============================================================
-// CALCULATION ENGINE
+// CALCULATION ENGINE — EXACT EXCEL LOGIC
 // ============================================================
 function calcSystem(appliances, opts) {
-  const usageHours = opts.usageHours || 8;
   const backupDays = opts.backupDays || 1;
   const batteryType = opts.batteryType || 'lithium';
   const markup = (opts.markup || 0) / 100;
   const prices = state.prices.user;
   const cfg = state.config;
 
-  let totalLoad = 0;
+  // Per-device: Device Load (W) = Watts × Qty
+  // Per-device: Device Energy (Wh) = Device Load × Hours
+  let totalLoad = 0;       // Sum of all Device Loads (W)
+  let totalEnergyWh = 0;   // Sum of all Device Energies (Wh)
+  const deviceRows = [];
+
   DEFAULT_APPLIANCES.forEach(a => {
-    totalLoad += (appliances[a.id]||0) * a.watts;
+    const d = appliances[a.id] || { qty: 0, hours: a.defaultHours };
+    const deviceLoad = d.qty * a.watts;           // W
+    const deviceEnergy = deviceLoad * d.hours;    // Wh
+    totalLoad += deviceLoad;
+    totalEnergyWh += deviceEnergy;
+    if (deviceLoad > 0) deviceRows.push({ name: a.name, watts: a.watts, qty: d.qty, hours: d.hours, deviceLoad, deviceEnergy });
   });
 
-  const dailyKWh = (totalLoad * usageHours) / 1000;
-  const panelW = Math.ceil((dailyKWh / cfg.sunHours) * 1000 / 50) * 50;
+  const totalEnergyKWh = totalEnergyWh / 1000;
+
+  // System sizing from Total Energy Demanded
+  const panelW = Math.ceil((totalEnergyKWh / cfg.sunHours) * 1000 / 50) * 50;
   const dod = batteryType === 'lithium' ? cfg.dodLithium : cfg.dodLead;
-  const batteryKWh = Math.ceil(dailyKWh * backupDays * dod * 10) / 10;
+  const batteryKWh = Math.ceil(totalEnergyKWh * backupDays * dod * 10) / 10;
   const inverterKVA = Math.ceil((totalLoad / 1000) * 1.25 * 10) / 10;
 
   const batteryPrice = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
@@ -775,12 +830,11 @@ function calcSystem(appliances, opts) {
   const markupAmt = subtotal * markup;
   const total = subtotal + markupAmt;
 
-  return { totalLoad, dailyKWh, panelW, batteryKWh, inverterKVA, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+  return { totalLoad, totalEnergyWh, totalEnergyKWh, panelW, batteryKWh, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
 }
 
 function recalculate() {
   const opts = {
-    usageHours: parseFloat(document.getElementById('usage-hours')?.value)||8,
     backupDays: parseFloat(document.getElementById('backup-days')?.value)||1,
     batteryType: document.getElementById('battery-type')?.value||'lithium',
     markup: parseFloat(document.getElementById('markup')?.value)||0
@@ -788,15 +842,26 @@ function recalculate() {
   const r = calcSystem(state.appliances, opts);
 
   const fmt = n => Math.round(n).toLocaleString('en-NG');
+
+  // Update tfoot totals in appliance table
+  const tfLoad = document.getElementById('tfoot-load');
+  const tfEnergy = document.getElementById('tfoot-energy');
+  if (tfLoad) tfLoad.textContent = fmt(r.totalLoad) + ' W';
+  if (tfEnergy) tfEnergy.textContent = fmt(r.totalEnergyWh) + ' Wh';
+
+  // Update badge
+  const badge = document.getElementById('total-load-badge');
+  if (badge) badge.textContent = fmt(r.totalLoad) + 'W · ' + r.totalEnergyKWh.toFixed(2) + ' kWh';
+
+  // Update calc panel
   document.getElementById('calc-load').textContent = fmt(r.totalLoad) + ' W';
-  document.getElementById('calc-daily').textContent = r.dailyKWh.toFixed(2) + ' kWh';
+  document.getElementById('calc-daily').textContent = r.totalEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.totalEnergyWh) + ' Wh)';
   document.getElementById('calc-panel').textContent = fmt(r.panelW) + ' W';
   document.getElementById('calc-battery').textContent = r.batteryKWh.toFixed(1) + ' kWh';
   document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(1) + ' kVA';
   document.getElementById('calc-equip').textContent = '₦' + fmt(r.equipTotal);
   document.getElementById('calc-install').textContent = '₦' + fmt(r.cInstall);
   document.getElementById('calc-total').textContent = '₦' + fmt(r.total);
-  document.getElementById('total-load-badge').textContent = fmt(r.totalLoad) + 'W total';
 }
 
 // ============================================================
@@ -807,7 +872,6 @@ function saveAudit() {
   const clientPhone = document.getElementById('client-phone').value || '';
   const propertyType = document.getElementById('property-type').value;
   const location = document.getElementById('client-location').value;
-  const usageHours = parseFloat(document.getElementById('usage-hours').value)||8;
   const gridHours = parseFloat(document.getElementById('grid-hours').value)||4;
   const backupDays = parseFloat(document.getElementById('backup-days').value)||1;
   const batteryType = document.getElementById('battery-type').value;
@@ -815,15 +879,15 @@ function saveAudit() {
   const panelBrand = document.getElementById('panel-brand').value;
   const markup = parseFloat(document.getElementById('markup').value)||0;
 
-  const opts = { usageHours, backupDays, batteryType, markup };
+  const opts = { backupDays, batteryType, markup };
   const r = calcSystem(state.appliances, opts);
 
   const audit = {
     id: Date.now().toString(),
     createdAt: new Date().toISOString(),
     clientName, clientPhone, propertyType, location,
-    usageHours, gridHours, backupDays, batteryType, inverterBrand, panelBrand, markup,
-    appliances: { ...state.appliances },
+    gridHours, backupDays, batteryType, inverterBrand, panelBrand, markup,
+    appliances: JSON.parse(JSON.stringify(state.appliances)),
     result: r
   };
 
@@ -868,7 +932,7 @@ function generateQuote(auditOverride) {
     <table class="quote-table" style="margin-bottom:20px">
       <tr><th>Parameter</th><th>Value</th></tr>
       <tr><td>Total Load</td><td><strong>${fmt(r.totalLoad)} W</strong></td></tr>
-      <tr><td>Daily Energy Consumption</td><td><strong>${r.dailyKWh.toFixed(2)} kWh/day</strong></td></tr>
+      <tr><td>Total Energy Demanded</td><td><strong>${fmt(r.totalEnergyWh)} Wh / ${(r.totalEnergyKWh||0).toFixed(2)} kWh/day</strong></td></tr>
       <tr><td>Solar Panel Capacity</td><td><strong>${fmt(r.panelW)} W (${audit.panelBrand})</strong></td></tr>
       <tr><td>Battery Bank</td><td><strong>${r.batteryKWh.toFixed(1)} kWh (${audit.batteryType==='lithium'?'Lithium LiFePO4':'Lead-Acid'})</strong></td></tr>
       <tr><td>Inverter Size</td><td><strong>${r.inverterKVA.toFixed(1)} kVA (${audit.inverterBrand})</strong></td></tr>
@@ -921,16 +985,14 @@ function buildCurrentAudit() {
     clientPhone: document.getElementById('client-phone').value || '',
     propertyType: document.getElementById('property-type').value,
     location: document.getElementById('client-location').value,
-    usageHours: parseFloat(document.getElementById('usage-hours').value)||8,
     gridHours: parseFloat(document.getElementById('grid-hours').value)||4,
     backupDays: parseFloat(document.getElementById('backup-days').value)||1,
     batteryType: document.getElementById('battery-type').value,
     inverterBrand: document.getElementById('inverter-brand').value,
     panelBrand: document.getElementById('panel-brand').value,
     markup: parseFloat(document.getElementById('markup').value)||0,
-    appliances: { ...state.appliances },
+    appliances: JSON.parse(JSON.stringify(state.appliances)),
     result: calcSystem(state.appliances, {
-      usageHours: parseFloat(document.getElementById('usage-hours').value)||8,
       backupDays: parseFloat(document.getElementById('backup-days').value)||1,
       batteryType: document.getElementById('battery-type').value,
       markup: parseFloat(document.getElementById('markup').value)||0
@@ -985,7 +1047,7 @@ function downloadPDF() {
 
   const specs = [
     ['Total Load', fmt(r.totalLoad||0)+' W'],
-    ['Daily Energy', (r.dailyKWh||0).toFixed(2)+' kWh/day'],
+    ['Total Energy Demanded', fmt(r.totalEnergyWh||0)+' Wh / '+(r.totalEnergyKWh||0).toFixed(2)+' kWh'],
     ['Solar Panels', fmt(r.panelW||0)+' W'],
     ['Battery Bank', (r.batteryKWh||0).toFixed(1)+' kWh ('+((audit.batteryType||'lithium')==='lithium'?'Lithium':'Lead-Acid')+')'],
     ['Inverter', (r.inverterKVA||0).toFixed(1)+' kVA'],
@@ -1101,7 +1163,7 @@ function openAuditModal(id) {
       <div>
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.06em;margin-bottom:8px">System Results</div>
         <div class="breakdown-item"><div class="breakdown-label">Total Load</div><div class="breakdown-val">${fmt(r.totalLoad)} W</div></div>
-        <div class="breakdown-item"><div class="breakdown-label">Daily Energy</div><div class="breakdown-val">${r.dailyKWh.toFixed(2)} kWh</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Total Energy</div><div class="breakdown-val">${fmt(r.totalEnergyWh||0)} Wh</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Panel Capacity</div><div class="breakdown-val">${fmt(r.panelW)} W</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Battery Bank</div><div class="breakdown-val">${r.batteryKWh.toFixed(1)} kWh</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Inverter Size</div><div class="breakdown-val">${r.inverterKVA.toFixed(1)} kVA</div></div>
@@ -1296,7 +1358,7 @@ function updateBadges() {
 // ============================================================
 // LISTENERS
 // ============================================================
-document.querySelectorAll('#usage-hours,#backup-days,#battery-type,#markup').forEach(el => {
+document.querySelectorAll('#backup-days,#battery-type,#markup').forEach(el => {
   el && el.addEventListener('input', recalculate);
 });
 

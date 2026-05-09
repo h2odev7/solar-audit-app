@@ -386,15 +386,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <div class="card-title">System Parameters</div>
         <div class="form-row-3">
           <div class="form-group">
-            <label class="form-label">Battery Backup Days</label>
-            <select class="form-input" id="backup-days">
-              <option value="1">1 day</option>
-              <option value="1.5">1.5 days</option>
-              <option value="2">2 days</option>
-              <option value="3">3 days</option>
-            </select>
-          </div>
-          <div class="form-group">
             <label class="form-label">Battery Type</label>
             <select class="form-input" id="battery-type">
               <option value="lithium">Lithium (LiFePO4)</option>
@@ -463,7 +454,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-val" id="calc-batt-wh">0 Wh</div>
         </div>
         <div class="breakdown-item" style="background:rgba(249,115,22,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-          <div class="breakdown-label">Total Battery Energy<span>Batteries × Indiv. Ah × Voltage</span></div>
+          <div class="breakdown-label">Total Battery Energy<span>Capacity Ah × Voltage × Days of Autonomy</span></div>
           <div class="breakdown-val" style="color:var(--accent)" id="calc-total-batt-energy">0 Wh</div>
         </div>
         <div class="breakdown-item">
@@ -471,7 +462,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-val" id="calc-solar-power">0 W</div>
         </div>
         <div class="breakdown-item">
-          <div class="breakdown-label">Adjusted Panel Capacity<span>Solar Power × Energy Used %</span></div>
+          <div class="breakdown-label">Adjusted Panel Capacity<span>(Solar Power × Energy%) + Solar Power</span></div>
           <div class="breakdown-val" id="calc-adj-panel">0 W</div>
         </div>
         <div class="breakdown-item" style="background:rgba(34,197,94,.05);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
@@ -479,7 +470,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-val" style="color:var(--green)" id="calc-num-panels">0 panels</div>
         </div>
         <div class="breakdown-item">
-          <div class="breakdown-label">Battery Runtime<span>Capacity × Autonomy × 24</span></div>
+          <div class="breakdown-label">Battery Runtime<span>Days of Autonomy × 24 hrs</span></div>
           <div class="breakdown-val" id="calc-batt-runtime">0 hrs</div>
         </div>
         <div class="breakdown-item">
@@ -628,6 +619,18 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div style="font-size:11px;color:var(--text3);margin-top:4px">Manual override — shown on final report</div>
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Inverter Voltage (V)</label>
+          <select class="form-input" id="cfg-inv-voltage">
+            <option value="12">12V</option>
+            <option value="24">24V</option>
+            <option value="48" selected>48V</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Days of Autonomy</label>
+          <input type="number" class="form-input" id="cfg-days-autonomy" value="1" min="1" max="7">
+        </div>
+      </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save Config</button>
     </div>
   </div>
@@ -726,7 +729,9 @@ const DEFAULT_CONFIG = {
   individualPanelW: 400,
   energyUsedPct: 0.90,
   inverterEfficiency: 1.25,
-  selectedInverterKVA: 5.0
+  selectedInverterKVA: 5.0,
+  daysOfAutonomy: 1,
+  inverterVoltage: 48
 };
 
 const DEFAULT_COMPANY = {
@@ -887,7 +892,7 @@ function updateRowCalc(id) {
 // CALCULATION ENGINE — EXACT EXCEL LOGIC
 // ============================================================
 function calcSystem(appliances, opts) {
-  const backupDays = opts.backupDays || 1;
+  const backupDays = cfg.daysOfAutonomy || 1;
   const batteryType = opts.batteryType || 'lithium';
   const markup = (opts.markup || 0) / 100;
   const prices = state.prices.user;
@@ -914,10 +919,9 @@ function calcSystem(appliances, opts) {
   const adjustedEnergyWh  = totalEnergyWh * 1.20;
   const adjustedEnergyKWh = adjustedEnergyWh / 1000;
 
-  // System sizing from Adjusted Energy Demand
-  const panelW = Math.ceil((adjustedEnergyKWh / cfg.sunHours) * 1000 / 50) * 50;
+  // Battery sizing from Adjusted Energy Demand
   const dod = batteryType === 'lithium' ? cfg.dodLithium : cfg.dodLead;
-  const batteryKWh = Math.ceil(adjustedEnergyKWh * backupDays * dod * 10) / 10;
+  const batteryKWh = Math.ceil(adjustedEnergyKWh * (cfg.daysOfAutonomy||1) * dod * 10) / 10;
   // Inverter Size (W) = Total Load × Inverter Efficiency
   const inverterSizeW = totalLoad * (cfg.inverterEfficiency || 1.25);
 
@@ -925,25 +929,46 @@ function calcSystem(appliances, opts) {
   const inverterKVA = Math.round((inverterSizeW / 0.8) / 1000 * 10) / 10;
 
   // Battery Capacity (Ah) = Adjusted Energy Demand (Wh) / (Voltage × DoD × Efficiency)
-  const battCapacityAh = adjustedEnergyWh / (cfg.battVoltage * cfg.battDod * cfg.battEfficiency);
+  const battCapacityAh = adjustedEnergyWh / ((cfg.battVoltage||48) * (cfg.battDod||0.8) * (cfg.battEfficiency||0.95));
 
-  // Battery Runtime (hrs) = Battery Capacity (Ah) × Days of Autonomy × 24
-  const battRuntimeHrs = battCapacityAh * backupDays * 24;
+  // Battery Runtime (hrs) = Days of Autonomy × 24
+  const battRuntimeHrs = (cfg.daysOfAutonomy||1) * 24;
 
-  // Total Batteries = ceil(Battery Capacity (Ah) / Individual Battery Capacity (Ah))
-  const totalBatteries = Math.ceil(battCapacityAh / (cfg.individualBattAh || 200));
+  // Total Batteries — based on battery type, battery voltage, inverter voltage
+  const rawBatteries = Math.ceil(battCapacityAh / (cfg.individualBattAh || 200));
+  const bVolt = cfg.battVoltage || 48;
+  const iVolt = cfg.inverterVoltage || 48;
+  let totalBatteries = 0;
+  if (batteryType === 'lead') {
+    if (bVolt === 12 && iVolt === 12) {
+      totalBatteries = rawBatteries;
+    } else if (bVolt === 12 && iVolt === 24) {
+      const n = rawBatteries / 2;
+      totalBatteries = Math.ceil(n % 1 === 0 ? n : Math.ceil(n / 2) * 2); // nearest even
+    } else if (bVolt === 12 && iVolt === 48) {
+      totalBatteries = Math.ceil(rawBatteries / 4) * 4; // nearest multiple of 4
+    } else {
+      totalBatteries = 0; // N/A combo
+    }
+  } else { // lithium
+    if (bVolt === iVolt) {
+      totalBatteries = rawBatteries;
+    } else {
+      totalBatteries = 0; // N/A combo
+    }
+  }
 
   // Battery Capacity (Wh) = Battery Capacity (Ah) × Battery Voltage (V)
   const battCapacityWh = battCapacityAh * cfg.battVoltage;
 
-  // Total Energy from Battery Bank (Wh) = Total Batteries × Individual Battery Ah × Voltage
-  const totalBattEnergyWh = totalBatteries * (cfg.individualBattAh || 200) * cfg.battVoltage;
+  // Total Battery Energy (Wh) = Battery Capacity (Ah) × Voltage × Days of Autonomy
+  const totalBattEnergyWh = battCapacityAh * (cfg.battVoltage||48) * (cfg.daysOfAutonomy||1);
 
   // Solar Power Needed (W) = Total Battery Energy (Wh) ÷ Peak Sun Hours
   const solarPowerW = totalBattEnergyWh / cfg.sunHours;
 
-  // Adjusted Panel Capacity (W) = Solar Power Needed × Energy Used (%)
-  const adjustedPanelW = solarPowerW * (cfg.energyUsedPct || 0.90);
+  // Adjusted Panel Capacity (W) = (Solar Power × Energy Used%) + Solar Power
+  const adjustedPanelW = (solarPowerW * (cfg.energyUsedPct || 0.90)) + solarPowerW;
 
   // Number of Panels = ceil(Adjusted Panel Capacity / (Individual Panel W × 0.7))
   const numPanels = Math.ceil(adjustedPanelW / ((cfg.individualPanelW || 400) * 0.7));
@@ -967,7 +992,6 @@ function calcSystem(appliances, opts) {
 
 function recalculate() {
   const opts = {
-    backupDays: parseFloat(document.getElementById('backup-days')?.value)||1,
     batteryType: document.getElementById('battery-type')?.value||'lithium',
     markup: parseFloat(document.getElementById('markup')?.value)||0
   };
@@ -1000,7 +1024,7 @@ function recalculate() {
   document.getElementById('calc-adj-panel').textContent = fmt(Math.round(r.adjustedPanelW)) + ' W  (' + (r.adjustedPanelW/1000).toFixed(2) + ' kW)';
   document.getElementById('calc-num-panels').textContent = r.numPanels + ' panels  (' + (state.config.individualPanelW||400) + 'W each)';
   document.getElementById('calc-batt-runtime').textContent = Math.round(r.battRuntimeHrs).toLocaleString() + ' hrs';
-  document.getElementById('calc-total-batts').textContent = r.totalBatteries + ' batteries  (' + (state.config.individualBattAh||200) + 'Ah each)';
+  document.getElementById('calc-total-batts').textContent = r.totalBatteries > 0 ? r.totalBatteries + ' batteries  (' + (state.config.individualBattAh||200) + 'Ah each)' : 'N/A — voltage mismatch';
   document.getElementById('calc-inverter-w').textContent = fmt(Math.round(r.inverterSizeW)) + ' W';
   document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(2) + ' kVA  (calc.)';
   document.getElementById('calc-selected-inv').textContent = (r.selectedInverterKVA||0).toFixed(1) + ' kVA  (selected)';
@@ -1018,20 +1042,19 @@ function saveAudit() {
   const propertyType = document.getElementById('property-type').value;
   const location = document.getElementById('client-location').value;
   const gridHours = parseFloat(document.getElementById('grid-hours').value)||4;
-  const backupDays = parseFloat(document.getElementById('backup-days').value)||1;
   const batteryType = document.getElementById('battery-type').value;
   const inverterBrand = document.getElementById('inverter-brand').value;
   const panelBrand = document.getElementById('panel-brand').value;
   const markup = parseFloat(document.getElementById('markup').value)||0;
 
-  const opts = { backupDays, batteryType, markup };
+  const opts = { batteryType, markup };
   const r = calcSystem(state.appliances, opts);
 
   const audit = {
     id: Date.now().toString(),
     createdAt: new Date().toISOString(),
     clientName, clientPhone, propertyType, location,
-    gridHours, backupDays, batteryType, inverterBrand, panelBrand, markup,
+    gridHours, batteryType, inverterBrand, panelBrand, markup,
     appliances: JSON.parse(JSON.stringify(state.appliances)),
     result: r
   };
@@ -1091,7 +1114,7 @@ function generateQuote(auditOverride) {
       <tr style="background:#f0fdf4"><td><strong>Number of Solar Panels</strong><br><span style="font-size:11px;color:#9ca3af">${state.config.individualPanelW||400}W panels × 0.7 derating</span></td><td><strong>${r.numPanels||0} panels</strong></td></tr>
       <tr><td>Inverter Size (W)<br><span style="font-size:11px;color:#9ca3af">Total Load × Efficiency factor</span></td><td>${fmt(Math.round(r.inverterSizeW||0))} W</td></tr>
       <tr><td><strong>Inverter Size (kVA)</strong><br><span style="font-size:11px;color:#9ca3af">Inverter W ÷ 0.8 power factor ÷ 1000</span></td><td><strong>${(r.inverterKVA||0).toFixed(2)} kVA (${audit.inverterBrand})</strong></td></tr>
-      <tr><td>Backup Duration</td><td><strong>${audit.backupDays} day(s)</strong></td></tr>
+      <tr><td>Days of Autonomy</td><td><strong>${state.config.daysOfAutonomy||1} day(s)</strong></td></tr>
     </table>
     <div class="quote-section-title">Cost Breakdown</div>
     <table class="quote-table">
@@ -1166,14 +1189,13 @@ function buildCurrentAudit() {
     propertyType: document.getElementById('property-type').value,
     location: document.getElementById('client-location').value,
     gridHours: parseFloat(document.getElementById('grid-hours').value)||4,
-    backupDays: parseFloat(document.getElementById('backup-days').value)||1,
     batteryType: document.getElementById('battery-type').value,
     inverterBrand: document.getElementById('inverter-brand').value,
     panelBrand: document.getElementById('panel-brand').value,
     markup: parseFloat(document.getElementById('markup').value)||0,
     appliances: JSON.parse(JSON.stringify(state.appliances)),
     result: calcSystem(state.appliances, {
-      backupDays: parseFloat(document.getElementById('backup-days').value)||1,
+
       batteryType: document.getElementById('battery-type').value,
       markup: parseFloat(document.getElementById('markup').value)||0
     })
@@ -1231,7 +1253,7 @@ function downloadPDF() {
     ['Solar Panels', fmt(r.panelW||0)+' W'],
     ['Battery Bank', (r.batteryKWh||0).toFixed(1)+' kWh ('+((audit.batteryType||'lithium')==='lithium'?'Lithium':'Lead-Acid')+')'],
     ['Inverter', (r.inverterKVA||0).toFixed(1)+' kVA'],
-    ['Backup', (audit.backupDays||1)+' day(s)'],
+    ['Days of Autonomy', (state.config.daysOfAutonomy||1)+' day(s)'],
   ];
   doc.setTextColor(30,30,30); doc.setFont('helvetica','normal'); doc.setFontSize(9);
   specs.forEach(([l,v],i) => {
@@ -1478,6 +1500,8 @@ function populateSettingsForm() {
   document.getElementById('cfg-energy-used-pct').value = (cfg.energyUsedPct||0.90)*100;
   document.getElementById('cfg-inv-eff').value = cfg.inverterEfficiency||1.25;
   document.getElementById('cfg-selected-inv-kva').value = cfg.selectedInverterKVA||5.0;
+  document.getElementById('cfg-inv-voltage').value = cfg.inverterVoltage||48;
+  document.getElementById('cfg-days-autonomy').value = cfg.daysOfAutonomy||1;
 }
 
 function saveSettings() {
@@ -1501,6 +1525,8 @@ function saveSettings() {
     energyUsedPct: (parseFloat(document.getElementById('cfg-energy-used-pct').value)||90) / 100,
     inverterEfficiency: parseFloat(document.getElementById('cfg-inv-eff').value)||1.25,
     selectedInverterKVA: parseFloat(document.getElementById('cfg-selected-inv-kva').value)||5.0,
+    inverterVoltage: parseFloat(document.getElementById('cfg-inv-voltage').value)||48,
+    daysOfAutonomy: parseFloat(document.getElementById('cfg-days-autonomy').value)||1,
   };
   saveToStorage();
   recalculate();
@@ -1564,7 +1590,7 @@ function updateBadges() {
 // ============================================================
 // LISTENERS
 // ============================================================
-document.querySelectorAll('#backup-days,#battery-type,#markup').forEach(el => {
+document.querySelectorAll('#battery-type,#markup').forEach(el => {
   el && el.addEventListener('input', recalculate);
 });
 

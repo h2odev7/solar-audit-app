@@ -8,8 +8,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, getDoc,
+  collection, addDoc, getDocs, deleteDoc, query, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBUXYZ8zR78rb3cCfe1QVRTGdFjAmHAbg",
@@ -23,15 +30,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: "select_account" });
 
-// ── ADMIN EMAILS (add yours here) ──
+// ── ADMIN EMAILS ──
 const ADMIN_EMAILS = ['admin@solariq.ng'];
-
-// ── AUTH STATE ──
 let currentUser = null;
 let isAdmin = false;
 
+// ── AUTH STATE ──
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -42,7 +49,7 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('user-display-email').textContent = user.email;
     if (isAdmin) document.getElementById('admin-nav').style.display = 'block';
     await loadCloudData();
-    init();
+    if (window.appReady) window.appReady();
   } else {
     currentUser = null;
     document.getElementById('auth-screen').style.display = 'flex';
@@ -50,141 +57,166 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// ── GOOGLE SIGN IN ──
+// ── GOOGLE LOGIN ──
 window.loginWithGoogle = async () => {
+  const btn = document.getElementById('btn-google');
+  btn.disabled = true; btn.textContent = 'Please wait...';
   try {
-    setBtnLoading('btn-google', true);
-    await signInWithPopup(auth, googleProvider);
-  } catch(err) {
-    showAuthError(err.message);
-    setBtnLoading('btn-google', false);
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Continue with Google';
+    showAuthError(err.code === 'auth/popup-blocked'
+      ? 'Popup blocked — please allow popups for this site.'
+      : err.message);
   }
 };
 
-// ── EMAIL SIGN IN ──
+// ── EMAIL LOGIN ──
 window.loginWithEmail = async () => {
   const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  if (!email || !password) return showAuthError('Please enter email and password.');
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) return showAuthError('Please enter email and password.');
+  const btn = document.getElementById('btn-email-login');
+  btn.disabled = true; btn.textContent = 'Signing in...';
   try {
-    setBtnLoading('btn-email-login', true);
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch(err) {
-    showAuthError(err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' ? 'Invalid email or password.' : err.message);
-    setBtnLoading('btn-email-login', false);
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Sign In';
+    showAuthError(
+      err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found'
+        ? 'Incorrect email or password.'
+        : err.message
+    );
   }
 };
 
-// ── EMAIL SIGN UP ──
+// ── SIGN UP ──
 window.signUpWithEmail = async () => {
   const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  if (!email || !password) return showAuthError('Please enter email and password.');
-  if (password.length < 6) return showAuthError('Password must be at least 6 characters.');
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) return showAuthError('Please enter email and password.');
+  if (pass.length < 6) return showAuthError('Password must be at least 6 characters.');
+  const btn = document.getElementById('btn-email-signup');
+  btn.disabled = true; btn.textContent = 'Creating account...';
   try {
-    setBtnLoading('btn-email-signup', true);
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    await setDoc(doc(db, 'users', result.user.uid), { email, createdAt: new Date().toISOString() });
-  } catch(err) {
-    showAuthError(err.code === 'auth/email-already-in-use' ? 'Email already in use. Try signing in.' : err.message);
-    setBtnLoading('btn-email-signup', false);
+    const res = await createUserWithEmailAndPassword(auth, email, pass);
+    await setDoc(doc(db, 'users', res.user.uid), { email, createdAt: new Date().toISOString() });
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Sign Up';
+    showAuthError(
+      err.code === 'auth/email-already-in-use'
+        ? 'Email already in use — try signing in instead.'
+        : err.message
+    );
   }
 };
 
 // ── SIGN OUT ──
 window.signOutUser = async () => {
+  if (!confirm('Sign out?')) return;
   await signOut(auth);
-  state.audits = []; state.quotes = [];
-  showPage('dashboard');
 };
 
+// ── AUTH ERROR ──
 function showAuthError(msg) {
   const el = document.getElementById('auth-error');
-  el.textContent = msg; el.style.display = 'block';
-}
-function setBtnLoading(id, loading) {
-  const btn = document.getElementById(id);
-  if (btn) btn.disabled = loading;
-  if (btn) btn.textContent = loading ? 'Please wait...' : btn.dataset.label;
+  el.textContent = msg;
+  el.style.display = 'block';
 }
 
-// ── CLOUD: LOAD ──
+// ── LOAD ALL USER DATA ──
 async function loadCloudData() {
   if (!currentUser) return;
   try {
-    // Load settings
-    const cfgDoc = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'));
-    if (cfgDoc.exists()) state.config = { ...DEFAULT_CONFIG, ...cfgDoc.data() };
-    const coDoc = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'));
-    if (coDoc.exists()) state.company = { ...DEFAULT_COMPANY, ...coDoc.data() };
-    const priceDoc = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'));
-    if (priceDoc.exists()) state.prices = { ...DEFAULT_PRICES, ...priceDoc.data() };
-    // Load audits
-    const auditsSnap = await getDocs(query(collection(db, 'users', currentUser.uid, 'audits'), orderBy('createdAt', 'desc')));
-    state.audits = auditsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Load quotes
-    const quotesSnap = await getDocs(query(collection(db, 'users', currentUser.uid, 'quotes'), orderBy('createdAt', 'desc')));
-    state.quotes = quotesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch(e) { console.error('Load error:', e); }
+    document.getElementById('cloud-status').textContent = 'Syncing...';
+    // Settings
+    const cfgSnap = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'));
+    if (cfgSnap.exists()) window._cloudConfig = cfgSnap.data();
+    const coSnap = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'));
+    if (coSnap.exists()) window._cloudCompany = coSnap.data();
+    const prSnap = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'));
+    if (prSnap.exists()) window._cloudPrices = prSnap.data();
+    // Audits
+    const audSnap = await getDocs(query(collection(db, 'users', currentUser.uid, 'audits'), orderBy('createdAt', 'desc')));
+    window._cloudAudits = audSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Quotes
+    const qSnap = await getDocs(query(collection(db, 'users', currentUser.uid, 'quotes'), orderBy('createdAt', 'desc')));
+    window._cloudQuotes = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    document.getElementById('cloud-status').textContent = 'Synced';
+    setTimeout(() => { const el = document.getElementById('cloud-status'); if(el) el.textContent = ''; }, 3000);
+  } catch(e) {
+    console.error('Load error:', e);
+    document.getElementById('cloud-status').textContent = 'Offline';
+  }
 }
 
-// ── CLOUD: SAVE AUDIT ──
+// ── SAVE AUDIT ──
 window.cloudSaveAudit = async (audit) => {
-  if (!currentUser) return;
+  if (!currentUser) return null;
   try {
     const { id, ...data } = audit;
     const ref = await addDoc(collection(db, 'users', currentUser.uid, 'audits'), data);
+    document.getElementById('cloud-status').textContent = 'Saved ✓';
+    setTimeout(() => { const el = document.getElementById('cloud-status'); if(el) el.textContent = ''; }, 2000);
     return ref.id;
-  } catch(e) { console.error('Save audit error:', e); }
+  } catch(e) { console.error('Save audit error:', e); return null; }
 };
 
-// ── CLOUD: DELETE AUDIT ──
-window.cloudDeleteAudit = async (auditId) => {
-  if (!currentUser) return;
-  try { await deleteDoc(doc(db, 'users', currentUser.uid, 'audits', auditId)); } catch(e) {}
+// ── DELETE AUDIT ──
+window.cloudDeleteAudit = async (id) => {
+  if (!currentUser || !id) return;
+  try { await deleteDoc(doc(db, 'users', currentUser.uid, 'audits', id)); } catch(e) {}
 };
 
-// ── CLOUD: SAVE QUOTE ──
+// ── SAVE QUOTE ──
 window.cloudSaveQuote = async (quote) => {
-  if (!currentUser) return;
+  if (!currentUser) return null;
   try {
     const { id, ...data } = quote;
     const ref = await addDoc(collection(db, 'users', currentUser.uid, 'quotes'), data);
     return ref.id;
-  } catch(e) { console.error('Save quote error:', e); }
+  } catch(e) { console.error('Save quote error:', e); return null; }
 };
 
-// ── CLOUD: SAVE SETTINGS ──
-window.cloudSaveSettings = async () => {
+// ── SAVE SETTINGS ──
+window.cloudSaveSettings = async (config, company, prices) => {
   if (!currentUser) return;
   try {
-    await setDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'), state.config);
-    await setDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'), state.company);
-    await setDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'), state.prices);
-  } catch(e) { console.error('Save settings error:', e); }
+    await Promise.all([
+      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'), config),
+      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'), company),
+      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'), prices),
+    ]);
+  } catch(e) { console.error('Settings save error:', e); }
 };
 
-// ── ADMIN: LOAD ALL USERS ──
+// ── ADMIN: ALL USERS ──
 window.loadAdminView = async () => {
   if (!isAdmin) return;
+  const list = document.getElementById('admin-users-list');
+  list.innerHTML = '<div class="empty-state"><div class="empty-title">Loading...</div></div>';
   try {
     const usersSnap = await getDocs(collection(db, 'users'));
-    const adminList = document.getElementById('admin-users-list');
-    adminList.innerHTML = '';
+    list.innerHTML = '';
     for (const userDoc of usersSnap.docs) {
       const uid = userDoc.id;
       const data = userDoc.data();
-      const auditsSnap = await getDocs(collection(db, 'users', uid, 'audits'));
+      const audSnap = await getDocs(collection(db, 'users', uid, 'audits'));
       const div = document.createElement('div');
       div.className = 'audit-item';
-      div.innerHTML = \`<div class="audit-icon">👤</div>
+      div.innerHTML = `<div class="audit-icon">&#128100;</div>
         <div class="audit-meta">
-          <div class="audit-title">\${data.email || uid}</div>
-          <div class="audit-sub">\${auditsSnap.size} audits · Joined \${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '—'}</div>
-        </div>\`;
-      adminList.appendChild(div);
+          <div class="audit-title">${data.email || uid}</div>
+          <div class="audit-sub">${audSnap.size} audits &middot; Joined ${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '&mdash;'}</div>
+        </div>
+        <span class="badge badge-blue">${audSnap.size} audits</span>`;
+      list.appendChild(div);
     }
-  } catch(e) { console.error('Admin load error:', e); }
+    if (!list.children.length) list.innerHTML = '<div class="empty-state"><div class="empty-title">No users yet</div></div>';
+  } catch(e) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-title">Error loading users</div></div>';
+    console.error(e);
+  }
 };
 </script>
 <style>
@@ -475,6 +507,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     </div>
   </nav>
   <div class="sidebar-footer">
+    <div style="font-size:11px;color:var(--text3);text-align:center;padding:4px 0;min-height:18px" id="cloud-status"></div>
     <div class="user-chip" style="cursor:pointer" onclick="signOutUser()">
       <div class="user-avatar" id="user-avatar-initial">U</div>
       <div class="user-info">
@@ -992,13 +1025,20 @@ let currentModalAudit = null;
 // INIT
 // ============================================================
 function init() {
-  loadFromStorage();
+  // Merge cloud data if available
+  if (window._cloudConfig)  state.config  = { ...DEFAULT_CONFIG,  ...window._cloudConfig };
+  if (window._cloudCompany) state.company = { ...DEFAULT_COMPANY, ...window._cloudCompany };
+  if (window._cloudPrices)  state.prices  = { ...DEFAULT_PRICES,  ...window._cloudPrices };
+  if (window._cloudAudits)  state.audits  = window._cloudAudits;
+  if (window._cloudQuotes)  state.quotes  = window._cloudQuotes;
   renderApplianceGrid();
   populateSettingsForm();
   recalculate();
   updateDashboard();
   updateBadges();
 }
+// Called by Firebase module after cloud load completes
+window.appReady = init;
 
 function loadFromStorage() {
   const saved = localStorage.getItem('solariq_state');
@@ -1769,7 +1809,7 @@ function saveSettings() {
     daysOfAutonomy: parseFloat(document.getElementById('cfg-days-autonomy').value)||1,
   };
   saveToStorage();
-  if (window.cloudSaveSettings) window.cloudSaveSettings();
+  if (window.cloudSaveSettings) window.cloudSaveSettings(state.config, state.company, state.prices);
   recalculate();
   alert('✅ Settings saved & synced to cloud');
 }
@@ -1836,9 +1876,10 @@ document.querySelectorAll('#battery-type,#markup').forEach(el => {
 });
 
 // ============================================================
-// BOOT
+// BOOT — init() is called by window.appReady after Firebase loads
+// Fallback: run init directly if Firebase module hasn't fired yet
 // ============================================================
-init();
+setTimeout(() => { if (!window._fbLoaded) init(); }, 2000);
 </script>
 </body>
 </html>

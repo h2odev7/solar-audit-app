@@ -1313,6 +1313,7 @@ function calcSystem(appliances, opts) {
 }
 
 function recalculate() {
+  try {
   const opts = {
     batteryType: document.getElementById('battery-type')?.value||'lithium',
     markup: parseFloat(document.getElementById('markup')?.value)||0
@@ -1333,26 +1334,29 @@ function recalculate() {
   const badge = document.getElementById('total-load-badge');
   if (badge) badge.textContent = fmt(r.totalLoad) + 'W load · ' + r.adjustedEnergyKWh.toFixed(2) + ' kWh adjusted';
 
-  // Update calc panel
-  document.getElementById('calc-load').textContent = fmt(r.totalLoad) + ' W';
-  document.getElementById('calc-daily').textContent = r.totalEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.totalEnergyWh) + ' Wh)';
-  document.getElementById('calc-adjusted').textContent = r.adjustedEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.adjustedEnergyWh) + ' Wh)';
-  document.getElementById('calc-panel').textContent = fmt(r.panelW) + ' W';
-  document.getElementById('calc-battery').textContent = r.batteryKWh.toFixed(1) + ' kWh';
-  document.getElementById('calc-batt-ah').textContent = Math.ceil(r.battCapacityAh) + ' Ah  @' + (state.config.battVoltage||48) + 'V';
-  document.getElementById('calc-batt-wh').textContent = fmt(Math.round(r.battCapacityWh)) + ' Wh  (' + (r.battCapacityWh/1000).toFixed(2) + ' kWh)';
-  document.getElementById('calc-total-batt-energy').textContent = fmt(Math.round(r.totalBattEnergyWh)) + ' Wh  (' + (r.totalBattEnergyWh/1000).toFixed(2) + ' kWh)';
-  document.getElementById('calc-solar-power').textContent = fmt(Math.round(r.solarPowerW)) + ' W  (' + (r.solarPowerW/1000).toFixed(2) + ' kW)';
-  document.getElementById('calc-adj-panel').textContent = fmt(Math.round(r.adjustedPanelW)) + ' W  (' + (r.adjustedPanelW/1000).toFixed(2) + ' kW)';
-  document.getElementById('calc-num-panels').textContent = r.numPanels + ' panels  (' + (state.config.individualPanelW||400) + 'W each)';
-  document.getElementById('calc-batt-runtime').textContent = Math.round(r.battRuntimeHrs).toLocaleString() + ' hrs';
-  document.getElementById('calc-total-batts').textContent = r.totalBatteries > 0 ? r.totalBatteries + ' batteries  (' + (state.config.individualBattAh||200) + 'Ah each)' : 'N/A — voltage mismatch';
-  document.getElementById('calc-inverter-w').textContent = fmt(Math.round(r.inverterSizeW)) + ' W';
-  document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(2) + ' kVA  (calc.)';
-  document.getElementById('calc-selected-inv').textContent = (r.selectedInverterKVA||0).toFixed(1) + ' kVA  (selected)';
-  document.getElementById('calc-equip').textContent = '₦' + fmt(r.equipTotal);
-  document.getElementById('calc-install').textContent = '₦' + fmt(r.cInstall);
-  document.getElementById('calc-total').textContent = '₦' + fmt(r.total);
+  // Update calc panel — null-safe helper prevents silent crashes
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  set('calc-load',            fmt(r.totalLoad) + ' W');
+  set('calc-daily',           r.totalEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.totalEnergyWh) + ' Wh)');
+  set('calc-adjusted',        r.adjustedEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.adjustedEnergyWh) + ' Wh)');
+  set('calc-panel',           fmt(r.panelW) + ' W');
+  set('calc-battery',         r.batteryKWh.toFixed(1) + ' kWh');
+  set('calc-batt-ah',         Math.ceil(r.battCapacityAh) + ' Ah @ ' + (state.config.battVoltage||48) + 'V');
+  set('calc-batt-wh',         fmt(Math.round(r.battCapacityWh)) + ' Wh (' + (r.battCapacityWh/1000).toFixed(2) + ' kWh)');
+  set('calc-total-batt-energy', fmt(Math.round(r.totalBattEnergyWh)) + ' Wh (' + (r.totalBattEnergyWh/1000).toFixed(2) + ' kWh)');
+  set('calc-solar-power',     fmt(Math.round(r.solarPowerW)) + ' W (' + (r.solarPowerW/1000).toFixed(2) + ' kW)');
+  set('calc-adj-panel',       fmt(Math.round(r.adjustedPanelW)) + ' W (' + (r.adjustedPanelW/1000).toFixed(2) + ' kW)');
+  set('calc-num-panels',      r.numPanels + ' panels (' + (state.config.individualPanelW||400) + 'W each)');
+  set('calc-batt-runtime',    Math.round(r.battRuntimeHrs).toLocaleString() + ' hrs');
+  set('calc-total-batts',     r.totalBatteries > 0 ? r.totalBatteries + ' batteries (' + (state.config.individualBattAh||200) + 'Ah each)' : 'N/A — voltage mismatch');
+  set('calc-inverter-w',      fmt(Math.round(r.inverterSizeW)) + ' W');
+  set('calc-inverter',        r.inverterKVA.toFixed(2) + ' kVA (calc.)');
+  set('calc-selected-inv',    (r.selectedInverterKVA||0).toFixed(1) + ' kVA (selected)');
+  set('calc-equip',           '₦' + fmt(r.equipTotal));
+  set('calc-install',         '₦' + fmt(r.cInstall));
+  set('calc-total',           '₦' + fmt(r.total));
+  } catch(e) { console.error('recalculate error:', e); }
 }
 
 // ============================================================

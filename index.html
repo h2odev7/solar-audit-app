@@ -594,8 +594,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="form-group"><label class="form-label">Battery Efficiency</label>
         <input type="number" class="form-input" id="cfg-batt-eff" value="0.95" min="0.5" max="1" step="0.01">
       </div>
-      <div class="form-group"><label class="form-label">Individual Battery Capacity (Ah)</label>
-        <input type="number" class="form-input" id="cfg-indiv-batt-ah" value="200" min="1">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Individual Battery Capacity (Ah)</label>
+          <input type="number" class="form-input" id="cfg-indiv-batt-ah" value="200" min="1">
+        </div>
+        <div class="form-group"><label class="form-label">Days of Autonomy</label>
+          <input type="number" class="form-input" id="cfg-days-autonomy" value="1" min="1" max="7">
+        </div>
       </div>
       <div class="divider"></div>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Solar Panel Parameters</div>
@@ -619,17 +624,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div style="font-size:11px;color:var(--text3);margin-top:4px">Manual override — shown on final report</div>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Inverter Voltage (V)</label>
-          <select class="form-input" id="cfg-inv-voltage">
-            <option value="12">12V</option>
-            <option value="24">24V</option>
-            <option value="48" selected>48V</option>
-          </select>
-        </div>
-        <div class="form-group"><label class="form-label">Days of Autonomy</label>
-          <input type="number" class="form-input" id="cfg-days-autonomy" value="1" min="1" max="7">
-        </div>
+      <div class="form-group"><label class="form-label">Inverter Voltage (V)</label>
+        <select class="form-input" id="cfg-inv-voltage">
+          <option value="12">12V</option>
+          <option value="24">24V</option>
+          <option value="48" selected>48V</option>
+        </select>
       </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save Config</button>
     </div>
@@ -811,6 +811,7 @@ function showPage(id) {
   if (id === 'quotes') renderQuotesList();
   if (id === 'pricing') renderPriceTable();
   if (id === 'dashboard') updateDashboard();
+  if (id === 'new-audit') recalculate();
 }
 
 // ============================================================
@@ -884,8 +885,10 @@ function updateRowCalc(id) {
   const d = state.appliances[id];
   const deviceLoad = d.qty * a.watts;
   const deviceEnergy = deviceLoad * d.hours;
-  document.getElementById('dload-'+id).textContent = deviceLoad + ' W';
-  document.getElementById('denergy-'+id).textContent = deviceEnergy + ' Wh';
+  const dloadEl = document.getElementById('dload-'+id);
+  const denergyEl = document.getElementById('denergy-'+id);
+  if (dloadEl) dloadEl.textContent = deviceLoad + ' W';
+  if (denergyEl) denergyEl.textContent = deviceEnergy + ' Wh';
 }
 
 // ============================================================
@@ -1592,7 +1595,11 @@ function updateBadges() {
 // ============================================================
 document.querySelectorAll('#battery-type,#markup').forEach(el => {
   el && el.addEventListener('input', recalculate);
-});
+});"
+
+// Recalculate on battery type change specifically (it affects total batteries)
+const battTypeEl = document.getElementById('battery-type');
+if (battTypeEl) battTypeEl.addEventListener('change', recalculate);
 
 // ============================================================
 // BOOT

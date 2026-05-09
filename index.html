@@ -60,14 +60,17 @@ onAuthStateChanged(auth, async (user) => {
 // ── GOOGLE LOGIN ──
 window.loginWithGoogle = async () => {
   const btn = document.getElementById('btn-google');
-  btn.disabled = true; btn.textContent = 'Please wait...';
+  btn.disabled = true;
+  btn.textContent = 'Please wait...';
   try {
-    await signInWithPopup(auth, provider);
+    console.log("Starting Google login...");
+    const res = await signInWithPopup(auth, provider);
+    console.log("SUCCESS:", res.user);
   } catch (err) {
-    btn.disabled = false; btn.textContent = 'Continue with Google';
-    showAuthError(err.code === 'auth/popup-blocked'
-      ? 'Popup blocked — please allow popups for this site.'
-      : err.message);
+    console.error("FULL ERROR:", err);
+    btn.disabled = false;
+    btn.textContent = 'Continue with Google';
+    alert(err.code + " → " + err.message);
   }
 };
 

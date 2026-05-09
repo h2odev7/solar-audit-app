@@ -1966,9 +1966,12 @@ setTimeout(() => { if (!window._fbLoaded) init(); }, 2000);
 // DOM READY HOOK — Ensure calculations run on page load
 // ============================================================
 function calculateSystem() {
-  let totalLoad = 0;
-  let totalEnergy = 0;
+  const cfg = state.config || {};
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
+  // ─── 1. Sum loads + energy from appliances ───
+  let totalLoad = 0, totalEnergy = 0;
   DEFAULT_APPLIANCES.forEach(app => {
     const item = state.appliances[app.id];
     if (!item) return;
@@ -1976,33 +1979,98 @@ function calculateSystem() {
     const energy = load * (item.hours || 0);
     totalLoad += load;
     totalEnergy += energy;
-
-    // Update each row's device load + energy live
     const dloadEl = document.getElementById('dload-' + app.id);
     const denergyEl = document.getElementById('denergy-' + app.id);
     if (dloadEl) dloadEl.textContent = load + ' W';
     if (denergyEl) denergyEl.textContent = energy + ' Wh';
   });
 
-  const adjusted = totalEnergy * 1.2;
-  const fmt = n => Math.round(n).toLocaleString('en-NG');
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  // ─── 2. Adjusted with 20% loss ───
+  const adjustedWh = totalEnergy * 1.20;
+  const adjustedKWh = adjustedWh / 1000;
 
-  // Live tfoot totals
+  // ─── 3. Battery chain ───
+  const battVoltage = cfg.battVoltage || 48;
+  const battDod = cfg.battDod || 0.80;
+  const battEff = cfg.battEfficiency || 0.95;
+  const indivBattAh = cfg.individualBattAh || 200;
+  const daysAuto = cfg.daysOfAutonomy || 1;
+  const battType = document.getElementById('battery-type')?.value || 'lithium';
+  const dod = battType === 'lithium' ? (cfg.dodLithium || 1.25) : (cfg.dodLead || 2.0);
+
+  const battCapAh = adjustedWh / (battVoltage * battDod * battEff);
+  const battCapWh = battCapAh * battVoltage;
+  const batteryKWh = Math.ceil(adjustedKWh * daysAuto * dod * 10) / 10;
+  const totalBattEnergyWh = battCapAh * battVoltage * daysAuto;
+  const battRuntimeHrs = daysAuto * 24;
+
+  // Total batteries based on voltage matching
+  const rawBatteries = Math.ceil(battCapAh / indivBattAh);
+  const iVolt = cfg.inverterVoltage || 48;
+  let totalBatteries = 0;
+  if (battType === 'lead') {
+    if (battVoltage === 12 && iVolt === 12) totalBatteries = rawBatteries;
+    else if (battVoltage === 12 && iVolt === 24) totalBatteries = Math.ceil(rawBatteries / 2) * 2;
+    else if (battVoltage === 12 && iVolt === 48) totalBatteries = Math.ceil(rawBatteries / 4) * 4;
+  } else {
+    if (battVoltage === iVolt) totalBatteries = rawBatteries;
+  }
+
+  // ─── 4. Solar panels ───
+  const sunHours = cfg.sunHours || 4.5;
+  const energyUsedPct = cfg.energyUsedPct || 0.90;
+  const indivPanelW = cfg.individualPanelW || 400;
+  const solarPowerW = totalBattEnergyWh / sunHours;
+  const adjustedPanelW = (solarPowerW * energyUsedPct) + solarPowerW;
+  const numPanels = Math.ceil(adjustedPanelW / (indivPanelW * 0.7));
+
+  // ─── 5. Inverter ───
+  const invEff = cfg.inverterEfficiency || 1.25;
+  const inverterSizeW = totalLoad * invEff;
+  const inverterKVA = inverterSizeW / 0.8 / 1000;
+  const selectedInverterKVA = cfg.selectedInverterKVA || 5.0;
+
+  // ─── 6. Cost ───
+  const prices = state.prices?.user || {};
+  const markup = (parseFloat(document.getElementById('markup')?.value) || 0) / 100;
+  const cPanels = numPanels * (prices.panel || 0);
+  const cBattery = totalBatteries * (prices.battery || 0);
+  const cInverter = (prices.inverter || 0);
+  const cCabling = (prices.cabling || 0);
+  const cMounting = (prices.mounting || 0);
+  const cAccessories = (prices.accessories || 0);
+  const equipTotal = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
+  const cInstall = equipTotal * (cfg.installPct || 0.12);
+  const subtotal = equipTotal + cInstall;
+  const total = subtotal * (1 + markup);
+
+  // ─── 7. Write everything to DOM ───
+  // Tfoot
   set('tfoot-load',     fmt(totalLoad) + ' W');
   set('tfoot-energy',   fmt(totalEnergy) + ' Wh');
-  set('tfoot-adjusted', fmt(adjusted) + ' Wh  /  ' + (adjusted/1000).toFixed(2) + ' kWh');
-  set('total-load-badge', fmt(totalLoad) + 'W load · ' + (adjusted/1000).toFixed(2) + ' kWh adjusted');
+  set('tfoot-adjusted', fmt(adjustedWh) + ' Wh  /  ' + adjustedKWh.toFixed(2) + ' kWh');
+  set('total-load-badge', fmt(totalLoad) + 'W load · ' + adjustedKWh.toFixed(2) + ' kWh adjusted');
 
-  // Live calc panel basics
+  // Calc panel
   set('calc-load',     fmt(totalLoad) + ' W');
   set('calc-daily',    (totalEnergy/1000).toFixed(2) + ' kWh (' + fmt(totalEnergy) + ' Wh)');
-  set('calc-adjusted', (adjusted/1000).toFixed(2) + ' kWh (' + fmt(adjusted) + ' Wh)');
-
-  // Now run the full system calculation for battery, panels, inverter, cost
-  if (typeof window.recalculate_original === 'function') {
-    window.recalculate_original();
-  }
+  set('calc-adjusted', adjustedKWh.toFixed(2) + ' kWh (' + fmt(adjustedWh) + ' Wh)');
+  set('calc-panel',    fmt(Math.ceil((adjustedKWh / sunHours) * 1000 / 50) * 50) + ' W');
+  set('calc-battery',  batteryKWh.toFixed(1) + ' kWh');
+  set('calc-batt-ah',  Math.ceil(battCapAh) + ' Ah @ ' + battVoltage + 'V');
+  set('calc-batt-wh',  fmt(battCapWh) + ' Wh (' + (battCapWh/1000).toFixed(2) + ' kWh)');
+  set('calc-total-batt-energy', fmt(totalBattEnergyWh) + ' Wh (' + (totalBattEnergyWh/1000).toFixed(2) + ' kWh)');
+  set('calc-solar-power', fmt(solarPowerW) + ' W (' + (solarPowerW/1000).toFixed(2) + ' kW)');
+  set('calc-adj-panel',   fmt(adjustedPanelW) + ' W (' + (adjustedPanelW/1000).toFixed(2) + ' kW)');
+  set('calc-num-panels',  numPanels + ' panels (' + indivPanelW + 'W each)');
+  set('calc-batt-runtime', battRuntimeHrs + ' hrs');
+  set('calc-total-batts', totalBatteries > 0 ? totalBatteries + ' batteries (' + indivBattAh + 'Ah each)' : 'N/A — voltage mismatch');
+  set('calc-inverter-w',  fmt(inverterSizeW) + ' W');
+  set('calc-inverter',    inverterKVA.toFixed(2) + ' kVA (calc.)');
+  set('calc-selected-inv', selectedInverterKVA.toFixed(1) + ' kVA (selected)');
+  set('calc-equip',       '₦' + fmt(equipTotal));
+  set('calc-install',     '₦' + fmt(cInstall));
+  set('calc-total',       '₦' + fmt(total));
 }
 
 function renderAppliances() {

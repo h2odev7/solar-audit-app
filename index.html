@@ -6,6 +6,187 @@
 <title>SolarIQ — Energy Audit System</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBBUXYZ8zR78rb3cCfe1QVRTGdFjAmHAbg",
+  authDomain: "solariq-app.firebaseapp.com",
+  projectId: "solariq-app",
+  storageBucket: "solariq-app.firebasestorage.app",
+  messagingSenderId: "1033776808311",
+  appId: "1:1033776808311:web:0cbf53cc64e9f530e4e172"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+// ── ADMIN EMAILS (add yours here) ──
+const ADMIN_EMAILS = ['admin@solariq.ng'];
+
+// ── AUTH STATE ──
+let currentUser = null;
+let isAdmin = false;
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    isAdmin = ADMIN_EMAILS.includes(user.email);
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('user-display-name').textContent = user.displayName || user.email.split('@')[0];
+    document.getElementById('user-display-email').textContent = user.email;
+    if (isAdmin) document.getElementById('admin-nav').style.display = 'block';
+    await loadCloudData();
+    init();
+  } else {
+    currentUser = null;
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+// ── GOOGLE SIGN IN ──
+window.loginWithGoogle = async () => {
+  try {
+    setBtnLoading('btn-google', true);
+    await signInWithPopup(auth, googleProvider);
+  } catch(err) {
+    showAuthError(err.message);
+    setBtnLoading('btn-google', false);
+  }
+};
+
+// ── EMAIL SIGN IN ──
+window.loginWithEmail = async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!email || !password) return showAuthError('Please enter email and password.');
+  try {
+    setBtnLoading('btn-email-login', true);
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch(err) {
+    showAuthError(err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' ? 'Invalid email or password.' : err.message);
+    setBtnLoading('btn-email-login', false);
+  }
+};
+
+// ── EMAIL SIGN UP ──
+window.signUpWithEmail = async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!email || !password) return showAuthError('Please enter email and password.');
+  if (password.length < 6) return showAuthError('Password must be at least 6 characters.');
+  try {
+    setBtnLoading('btn-email-signup', true);
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    await setDoc(doc(db, 'users', result.user.uid), { email, createdAt: new Date().toISOString() });
+  } catch(err) {
+    showAuthError(err.code === 'auth/email-already-in-use' ? 'Email already in use. Try signing in.' : err.message);
+    setBtnLoading('btn-email-signup', false);
+  }
+};
+
+// ── SIGN OUT ──
+window.signOutUser = async () => {
+  await signOut(auth);
+  state.audits = []; state.quotes = [];
+  showPage('dashboard');
+};
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function setBtnLoading(id, loading) {
+  const btn = document.getElementById(id);
+  if (btn) btn.disabled = loading;
+  if (btn) btn.textContent = loading ? 'Please wait...' : btn.dataset.label;
+}
+
+// ── CLOUD: LOAD ──
+async function loadCloudData() {
+  if (!currentUser) return;
+  try {
+    // Load settings
+    const cfgDoc = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'));
+    if (cfgDoc.exists()) state.config = { ...DEFAULT_CONFIG, ...cfgDoc.data() };
+    const coDoc = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'));
+    if (coDoc.exists()) state.company = { ...DEFAULT_COMPANY, ...coDoc.data() };
+    const priceDoc = await getDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'));
+    if (priceDoc.exists()) state.prices = { ...DEFAULT_PRICES, ...priceDoc.data() };
+    // Load audits
+    const auditsSnap = await getDocs(query(collection(db, 'users', currentUser.uid, 'audits'), orderBy('createdAt', 'desc')));
+    state.audits = auditsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Load quotes
+    const quotesSnap = await getDocs(query(collection(db, 'users', currentUser.uid, 'quotes'), orderBy('createdAt', 'desc')));
+    state.quotes = quotesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { console.error('Load error:', e); }
+}
+
+// ── CLOUD: SAVE AUDIT ──
+window.cloudSaveAudit = async (audit) => {
+  if (!currentUser) return;
+  try {
+    const { id, ...data } = audit;
+    const ref = await addDoc(collection(db, 'users', currentUser.uid, 'audits'), data);
+    return ref.id;
+  } catch(e) { console.error('Save audit error:', e); }
+};
+
+// ── CLOUD: DELETE AUDIT ──
+window.cloudDeleteAudit = async (auditId) => {
+  if (!currentUser) return;
+  try { await deleteDoc(doc(db, 'users', currentUser.uid, 'audits', auditId)); } catch(e) {}
+};
+
+// ── CLOUD: SAVE QUOTE ──
+window.cloudSaveQuote = async (quote) => {
+  if (!currentUser) return;
+  try {
+    const { id, ...data } = quote;
+    const ref = await addDoc(collection(db, 'users', currentUser.uid, 'quotes'), data);
+    return ref.id;
+  } catch(e) { console.error('Save quote error:', e); }
+};
+
+// ── CLOUD: SAVE SETTINGS ──
+window.cloudSaveSettings = async () => {
+  if (!currentUser) return;
+  try {
+    await setDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'), state.config);
+    await setDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'), state.company);
+    await setDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'), state.prices);
+  } catch(e) { console.error('Save settings error:', e); }
+};
+
+// ── ADMIN: LOAD ALL USERS ──
+window.loadAdminView = async () => {
+  if (!isAdmin) return;
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    const adminList = document.getElementById('admin-users-list');
+    adminList.innerHTML = '';
+    for (const userDoc of usersSnap.docs) {
+      const uid = userDoc.id;
+      const data = userDoc.data();
+      const auditsSnap = await getDocs(collection(db, 'users', uid, 'audits'));
+      const div = document.createElement('div');
+      div.className = 'audit-item';
+      div.innerHTML = \`<div class="audit-icon">👤</div>
+        <div class="audit-meta">
+          <div class="audit-title">\${data.email || uid}</div>
+          <div class="audit-sub">\${auditsSnap.size} audits · Joined \${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '—'}</div>
+        </div>\`;
+      adminList.appendChild(div);
+    }
+  } catch(e) { console.error('Admin load error:', e); }
+};
+</script>
 <style>
 :root {
   --bg: #0a0e17;
@@ -232,7 +413,40 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </head>
 <body>
 
-<div class="app">
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:flex;position:fixed;inset:0;background:#0a0e17;z-index:999;align-items:center;justify-content:center;">
+  <div style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:40px;width:400px;max-width:95vw">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:48px;height:48px;background:#f97316;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px">⚡</div>
+      <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#f1f5f9">SolarIQ</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Energy Audit System</div>
+    </div>
+    <div id="auth-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px"></div>
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Email</label>
+      <input type="email" id="auth-email" class="form-input" placeholder="you@example.com">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Password</label>
+      <input type="password" id="auth-password" class="form-input" placeholder="••••••••">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button id="btn-email-login" data-label="Sign In" onclick="loginWithEmail()" class="btn btn-primary" style="flex:1">Sign In</button>
+      <button id="btn-email-signup" data-label="Sign Up" onclick="signUpWithEmail()" class="btn btn-secondary" style="flex:1">Sign Up</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div>
+      <div style="font-size:11px;color:#64748b">or</div>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div>
+    </div>
+    <button id="btn-google" data-label="Continue with Google" onclick="loginWithGoogle()" class="btn btn-secondary" style="width:100%;justify-content:center;gap:10px">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
@@ -255,13 +469,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div class="nav-section">Settings</div>
     <button class="nav-item" onclick="showPage('pricing')"><span class="nav-icon">₦</span><span>Price Lists</span></button>
     <button class="nav-item" onclick="showPage('settings')"><span class="nav-icon">⚙</span><span>Settings</span></button>
+    <div id="admin-nav" style="display:none">
+      <div class="nav-section">Admin</div>
+      <button class="nav-item" onclick="showPage('admin');loadAdminView()"><span class="nav-icon">👑</span><span>All Users</span></button>
+    </div>
   </nav>
   <div class="sidebar-footer">
-    <div class="user-chip">
-      <div class="user-avatar">A</div>
+    <div class="user-chip" style="cursor:pointer" onclick="signOutUser()">
+      <div class="user-avatar" id="user-avatar-initial">U</div>
       <div class="user-info">
-        <div class="user-name">Admin</div>
-        <div class="user-role">Engineer</div>
+        <div class="user-name" id="user-display-name">User</div>
+        <div class="user-role" id="user-display-email">Sign out</div>
       </div>
     </div>
   </div>
@@ -643,8 +861,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
-</main>
+<!-- ADMIN PAGE -->
+<div class="page" id="page-admin">
+  <div class="page-header">
+    <div class="page-title">&#128081; Admin — All Users</div>
+    <div class="page-desc">Overview of all registered engineers and their audits</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Registered Users</div>
+    <div id="admin-users-list"><div class="empty-state"><div class="empty-icon">&#128100;</div><div class="empty-title">Loading...</div></div></div>
+  </div>
 </div>
+
+</main>
+</div><!-- end app -->
 
 <!-- AUDIT DETAIL MODAL -->
 <div class="modal-overlay" id="audit-modal">
@@ -1039,7 +1269,7 @@ function recalculate() {
 // ============================================================
 // SAVE AUDIT
 // ============================================================
-function saveAudit() {
+async function saveAudit() {
   const clientName = document.getElementById('client-name').value || 'Unnamed Client';
   const clientPhone = document.getElementById('client-phone').value || '';
   const propertyType = document.getElementById('property-type').value;
@@ -1062,6 +1292,9 @@ function saveAudit() {
     result: r
   };
 
+  // Save to cloud
+  const cloudId = await window.cloudSaveAudit(audit);
+  if (cloudId) audit.id = cloudId;
   state.audits.unshift(audit);
   saveToStorage();
   updateBadges();
@@ -1072,7 +1305,7 @@ function saveAudit() {
 // ============================================================
 // GENERATE QUOTE
 // ============================================================
-function generateQuote(auditOverride) {
+async function generateQuote(auditOverride) {
   const audit = auditOverride || buildCurrentAudit();
   const r = audit.result;
   const fmt = n => Math.round(n).toLocaleString('en-NG');
@@ -1175,6 +1408,9 @@ function generateQuote(auditOverride) {
     createdAt: new Date().toISOString(),
     html: quoteHTML
   };
+  // Save to cloud
+  const cloudQId = await window.cloudSaveQuote(quote);
+  if (cloudQId) quote.id = cloudQId;
   state.quotes.unshift(quote);
   saveToStorage();
   updateBadges();
@@ -1395,6 +1631,7 @@ function openAuditModal(id) {
 function deleteAuditFromModal() {
   if (!currentModalAudit) return;
   if (!confirm('Delete audit for ' + currentModalAudit.clientName + '?')) return;
+  window.cloudDeleteAudit(currentModalAudit.id);
   state.audits = state.audits.filter(a=>a.id!==currentModalAudit.id);
   saveToStorage();
   updateBadges();
@@ -1532,8 +1769,9 @@ function saveSettings() {
     daysOfAutonomy: parseFloat(document.getElementById('cfg-days-autonomy').value)||1,
   };
   saveToStorage();
+  if (window.cloudSaveSettings) window.cloudSaveSettings();
   recalculate();
-  alert('✅ Settings saved');
+  alert('✅ Settings saved & synced to cloud');
 }
 
 function exportData() {

@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -21,12 +20,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
-apiKey: “AIzaSyBBUXYZ8zR78rb3cCfe1QVRTGdFjAmHAbg”,
-authDomain: “solariq-app.firebaseapp.com”,
-projectId: “solariq-app”,
-storageBucket: “solariq-app.firebasestorage.app”,
-messagingSenderId: “1033776808311”,
-appId: “1:1033776808311:web:0cbf53cc64e9f530e4e172”
+  apiKey: "AIzaSyBBUXYZ8zR78rb3cCfe1QVRTGdFjAmHAbg",
+  authDomain: "solariq-app.firebaseapp.com",
+  projectId: "solariq-app",
+  storageBucket: "solariq-app.firebasestorage.app",
+  messagingSenderId: "1033776808311",
+  appId: "1:1033776808311:web:0cbf53cc64e9f530e4e172"
 };
 
 const app  = initializeApp(firebaseConfig);
@@ -34,210 +33,214 @@ const auth = getAuth(app);
 auth.useDeviceLanguage();
 const db   = getFirestore(app);
 const provider = new GoogleAuthProvider();
-provider.setCustomParameters({ prompt: “select_account” });
+provider.setCustomParameters({ prompt: "select_account" });
 
 // ── ADMIN EMAILS ──
-const ADMIN_EMAILS = [‘admin@solariq.ng’];
+const ADMIN_EMAILS = ['admin@solariq.ng'];
 let currentUser = null;
 let isAdmin = false;
 
 // ── HANDLE REDIRECT RESULT (GitHub Pages fallback) ──
 getRedirectResult(auth)
-.then((result) => {
-if (result?.user) {
-console.log(“Redirect login success:”, result.user);
-}
-})
-.catch((error) => {
-console.error(“Redirect error:”, error);
-});
+  .then((result) => {
+    if (result?.user) {
+      console.log("Redirect login success:", result.user);
+    }
+  })
+  .catch((error) => {
+    console.error("Redirect error:", error);
+  });
 
 // ── AUTH STATE ──
 onAuthStateChanged(auth, async (user) => {
-console.log(“AUTH STATE:”, user);
-const authScreen = document.getElementById(‘auth-screen’);
-const appEl = document.getElementById(‘app’);
-if (user) {
-currentUser = user;
-isAdmin = ADMIN_EMAILS.includes(user.email);
-authScreen.style.display = ‘none’;
-appEl.style.display = ‘flex’;
-document.getElementById(‘user-display-name’).textContent = user.displayName || user.email.split(’@’)[0];
-document.getElementById(‘user-display-email’).textContent = user.email;
-if (isAdmin) document.getElementById(‘admin-nav’).style.display = ‘block’;
-await loadCloudData();
-window._fbLoaded = true;
-if (window.appReady) window.appReady();
-} else {
-currentUser = null;
-authScreen.style.display = ‘flex’;
-appEl.style.display = ‘none’;
-}
+  console.log("AUTH STATE:", user);
+  const authScreen = document.getElementById('auth-screen');
+  const appEl = document.getElementById('app');
+  if (user) {
+    currentUser = user;
+    isAdmin = ADMIN_EMAILS.includes(user.email);
+    authScreen.style.display = 'none';
+    appEl.style.display = 'flex';
+    document.getElementById('user-display-name').textContent = user.displayName || user.email.split('@')[0];
+    document.getElementById('user-display-email').textContent = user.email;
+    if (isAdmin) document.getElementById('admin-nav').style.display = 'block';
+    await loadCloudData();
+    window._fbLoaded = true;
+    if (window.appReady) window.appReady();
+  } else {
+    currentUser = null;
+    authScreen.style.display = 'flex';
+    appEl.style.display = 'none';
+  }
 });
 
 // ── GOOGLE LOGIN (popup with redirect fallback) ──
 window.loginWithGoogle = async () => {
-const btn = document.getElementById(‘btn-google’);
-btn.disabled = true;
-btn.textContent = ‘Please wait…’;
-try {
-console.log(“Trying popup login…”);
-await signInWithPopup(auth, provider);
-console.log(“Popup login success”);
-// CRITICAL FIX — force UI sync after popup
-window.location.reload();
-} catch (err) {
-console.warn(“Popup failed, switching to redirect…”, err);
-await signInWithRedirect(auth, provider);
-}
+  const btn = document.getElementById('btn-google');
+  btn.disabled = true;
+  btn.textContent = 'Please wait...';
+  try {
+    console.log("Trying popup login...");
+    await signInWithPopup(auth, provider);
+    console.log("Popup login success");
+    // CRITICAL FIX — force UI sync after popup
+    window.location.reload();
+  } catch (err) {
+    console.warn("Popup failed, switching to redirect...", err);
+    await signInWithRedirect(auth, provider);
+  }
 };
 
 // ── EMAIL LOGIN ──
 window.loginWithEmail = async () => {
-const email = document.getElementById(‘auth-email’).value.trim();
-const pass  = document.getElementById(‘auth-password’).value;
-if (!email || !pass) return showAuthError(‘Please enter email and password.’);
-const btn = document.getElementById(‘btn-email-login’);
-btn.disabled = true; btn.textContent = ‘Signing in…’;
-try {
-await signInWithEmailAndPassword(auth, email, pass);
-} catch (err) {
-btn.disabled = false; btn.textContent = ‘Sign In’;
-showAuthError(
-err.code === ‘auth/wrong-password’ || err.code === ‘auth/user-not-found’
-? ‘Incorrect email or password.’ : err.message
-);
-}
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) return showAuthError('Please enter email and password.');
+  const btn = document.getElementById('btn-email-login');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Sign In';
+    showAuthError(
+      err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found'
+        ? 'Incorrect email or password.' : err.message
+    );
+  }
 };
 
 // ── SIGN UP ──
 window.signUpWithEmail = async () => {
-const email = document.getElementById(‘auth-email’).value.trim();
-const pass  = document.getElementById(‘auth-password’).value;
-if (!email || !pass) return showAuthError(‘Please enter email and password.’);
-if (pass.length < 6) return showAuthError(‘Password must be at least 6 characters.’);
-const btn = document.getElementById(‘btn-email-signup’);
-btn.disabled = true; btn.textContent = ‘Creating account…’;
-try {
-const res = await createUserWithEmailAndPassword(auth, email, pass);
-await setDoc(doc(db, ‘users’, res.user.uid), { email, createdAt: new Date().toISOString() });
-} catch (err) {
-btn.disabled = false; btn.textContent = ‘Sign Up’;
-showAuthError(
-err.code === ‘auth/email-already-in-use’
-? ‘Email already in use — try signing in.’ : err.message
-);
-}
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) return showAuthError('Please enter email and password.');
+  if (pass.length < 6) return showAuthError('Password must be at least 6 characters.');
+  const btn = document.getElementById('btn-email-signup');
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  try {
+    const res = await createUserWithEmailAndPassword(auth, email, pass);
+    await setDoc(doc(db, 'users', res.user.uid), { email, createdAt: new Date().toISOString() });
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Sign Up';
+    showAuthError(
+      err.code === 'auth/email-already-in-use'
+        ? 'Email already in use — try signing in.' : err.message
+    );
+  }
 };
 
 // ── SIGN OUT ──
 window.signOutUser = async () => {
-if (!confirm(‘Sign out?’)) return;
-await signOut(auth);
-window.location.reload();
+  if (!confirm('Sign out?')) return;
+  await signOut(auth);
+  window.location.reload();
 };
 
 function showAuthError(msg) {
-const el = document.getElementById(‘auth-error’);
-if (el) { el.textContent = msg; el.style.display = ‘block’; }
+  const el = document.getElementById('auth-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 
 // ── LOAD CLOUD DATA ──
 async function loadCloudData() {
-if (!currentUser) return;
-try {
-setCloudStatus(‘Syncing…’);
-const [cfgSnap, coSnap, prSnap] = await Promise.all([
-getDoc(doc(db, ‘users’, currentUser.uid, ‘meta’, ‘config’)),
-getDoc(doc(db, ‘users’, currentUser.uid, ‘meta’, ‘company’)),
-getDoc(doc(db, ‘users’, currentUser.uid, ‘meta’, ‘prices’)),
-]);
-if (cfgSnap.exists()) window._cloudConfig  = cfgSnap.data();
-if (coSnap.exists())  window._cloudCompany = coSnap.data();
-if (prSnap.exists())  window._cloudPrices  = prSnap.data();
-const [audSnap, qSnap] = await Promise.all([
-getDocs(query(collection(db, ‘users’, currentUser.uid, ‘audits’), orderBy(‘createdAt’, ‘desc’))),
-getDocs(query(collection(db, ‘users’, currentUser.uid, ‘quotes’), orderBy(‘createdAt’, ‘desc’))),
-]);
-window._cloudAudits = audSnap.docs.map(d => ({ id: d.id, …d.data() }));
-window._cloudQuotes = qSnap.docs.map(d => ({ id: d.id, …d.data() }));
-setCloudStatus(‘Synced ✓’, 3000);
-} catch(e) {
-console.error(‘Load error:’, e);
-setCloudStatus(‘Offline’);
-}
+  if (!currentUser) return;
+  try {
+    setCloudStatus('Syncing...');
+    const [cfgSnap, coSnap, prSnap] = await Promise.all([
+      getDoc(doc(db, 'users', currentUser.uid, 'meta', 'config')),
+      getDoc(doc(db, 'users', currentUser.uid, 'meta', 'company')),
+      getDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices')),
+    ]);
+    if (cfgSnap.exists()) window._cloudConfig  = cfgSnap.data();
+    if (coSnap.exists())  window._cloudCompany = coSnap.data();
+    if (prSnap.exists())  window._cloudPrices  = prSnap.data();
+    const [audSnap, qSnap] = await Promise.all([
+      getDocs(query(collection(db, 'users', currentUser.uid, 'audits'), orderBy('createdAt', 'desc'))),
+      getDocs(query(collection(db, 'users', currentUser.uid, 'quotes'), orderBy('createdAt', 'desc'))),
+    ]);
+    window._cloudAudits = audSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    window._cloudQuotes = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    setCloudStatus('Synced ✓', 3000);
+  } catch(e) {
+    console.error('Load error:', e);
+    setCloudStatus('Offline');
+  }
 }
 
 // ── SAVE AUDIT ──
 window.cloudSaveAudit = async (audit) => {
-if (!currentUser) return null;
-try {
-const { id, …data } = audit;
-const ref = await addDoc(collection(db, ‘users’, currentUser.uid, ‘audits’), data);
-setCloudStatus(‘Saved ✓’, 2000);
-return ref.id;
-} catch(e) { console.error(‘Save audit:’, e); return null; }
+  if (!currentUser) return null;
+  try {
+    const { id, ...data } = audit;
+    const ref = await addDoc(collection(db, 'users', currentUser.uid, 'audits'), data);
+    setCloudStatus('Saved ✓', 2000);
+    return ref.id;
+  } catch(e) { console.error('Save audit:', e); return null; }
 };
 
 // ── DELETE AUDIT ──
 window.cloudDeleteAudit = async (id) => {
-if (!currentUser || !id) return;
-try { await deleteDoc(doc(db, ‘users’, currentUser.uid, ‘audits’, id)); } catch(e) {}
+  if (!currentUser || !id) return;
+  try { await deleteDoc(doc(db, 'users', currentUser.uid, 'audits', id)); } catch(e) {}
 };
 
 // ── SAVE QUOTE ──
 window.cloudSaveQuote = async (quote) => {
-if (!currentUser) return null;
-try {
-const { id, …data } = quote;
-const ref = await addDoc(collection(db, ‘users’, currentUser.uid, ‘quotes’), data);
-return ref.id;
-} catch(e) { console.error(‘Save quote:’, e); return null; }
+  if (!currentUser) return null;
+  try {
+    const { id, ...data } = quote;
+    const ref = await addDoc(collection(db, 'users', currentUser.uid, 'quotes'), data);
+    return ref.id;
+  } catch(e) { console.error('Save quote:', e); return null; }
 };
 
 // ── SAVE SETTINGS ──
 window.cloudSaveSettings = async (config, company, prices) => {
-if (!currentUser) return;
-try {
-await Promise.all([
-setDoc(doc(db, ‘users’, currentUser.uid, ‘meta’, ‘config’),  config),
-setDoc(doc(db, ‘users’, currentUser.uid, ‘meta’, ‘company’), company),
-setDoc(doc(db, ‘users’, currentUser.uid, ‘meta’, ‘prices’),  prices),
-]);
-} catch(e) { console.error(‘Save settings:’, e); }
+  if (!currentUser) return;
+  try {
+    await Promise.all([
+      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'),  config),
+      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'), company),
+      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'),  prices),
+    ]);
+  } catch(e) { console.error('Save settings:', e); }
 };
 
 // ── ADMIN: ALL USERS ──
 window.loadAdminView = async () => {
-if (!isAdmin) return;
-const list = document.getElementById(‘admin-users-list’);
-list.innerHTML = ‘<div class="empty-state"><div class="empty-title">Loading…</div></div>’;
-try {
-const usersSnap = await getDocs(collection(db, ‘users’));
-list.innerHTML = ‘’;
-for (const userDoc of usersSnap.docs) {
-const uid  = userDoc.id;
-const data = userDoc.data();
-const audSnap = await getDocs(collection(db, ‘users’, uid, ‘audits’));
-const div = document.createElement(‘div’);
-div.className = ‘audit-item’;
-div.innerHTML = `<div class="audit-icon">&#128100;</div> <div class="audit-meta"> <div class="audit-title">${data.email || uid}</div> <div class="audit-sub">${audSnap.size} audits &middot; Joined ${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '&mdash;'}</div> </div> <span class="badge badge-blue">${audSnap.size} audits</span>`;
-list.appendChild(div);
-}
-if (!list.children.length) list.innerHTML = ‘<div class="empty-state"><div class="empty-title">No users yet</div></div>’;
-} catch(e) {
-list.innerHTML = ‘<div class="empty-state"><div class="empty-title">Error loading users</div></div>’;
-console.error(e);
-}
+  if (!isAdmin) return;
+  const list = document.getElementById('admin-users-list');
+  list.innerHTML = '<div class="empty-state"><div class="empty-title">Loading...</div></div>';
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    list.innerHTML = '';
+    for (const userDoc of usersSnap.docs) {
+      const uid  = userDoc.id;
+      const data = userDoc.data();
+      const audSnap = await getDocs(collection(db, 'users', uid, 'audits'));
+      const div = document.createElement('div');
+      div.className = 'audit-item';
+      div.innerHTML = `<div class="audit-icon">&#128100;</div>
+        <div class="audit-meta">
+          <div class="audit-title">${data.email || uid}</div>
+          <div class="audit-sub">${audSnap.size} audits &middot; Joined ${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '&mdash;'}</div>
+        </div>
+        <span class="badge badge-blue">${audSnap.size} audits</span>`;
+      list.appendChild(div);
+    }
+    if (!list.children.length) list.innerHTML = '<div class="empty-state"><div class="empty-title">No users yet</div></div>';
+  } catch(e) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-title">Error loading users</div></div>';
+    console.error(e);
+  }
 };
 
 function setCloudStatus(msg, clearAfter) {
-const el = document.getElementById(‘cloud-status’);
-if (el) el.textContent = msg;
-if (clearAfter) setTimeout(() => { if (el) el.textContent = ‘’; }, clearAfter);
+  const el = document.getElementById('cloud-status');
+  if (el) el.textContent = msg;
+  if (clearAfter) setTimeout(() => { if (el) el.textContent = ''; }, clearAfter);
 }
 </script>
-
 <style>
 :root {
   --bg: #0a0e17;
@@ -461,12 +464,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .two-col,.col-6040{grid-template-columns:1fr;}
 }
 </style>
-
 </head>
 <body>
 
 <!-- AUTH SCREEN -->
-
 <div id="auth-screen" style="display:flex;position:fixed;inset:0;background:#0a0e17;z-index:999;align-items:center;justify-content:center;">
   <div style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:40px;width:400px;max-width:95vw">
     <div style="text-align:center;margin-bottom:28px">
@@ -502,7 +503,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 <div class="app" id="app" style="display:none">
 
 <!-- SIDEBAR -->
-
 <aside class="sidebar">
   <div class="logo">
     <div class="logo-mark">
@@ -541,11 +541,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </aside>
 
 <!-- MAIN -->
-
 <main class="main">
 
 <!-- DASHBOARD PAGE -->
-
 <div class="page active" id="page-dashboard">
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -597,7 +595,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <!-- NEW AUDIT PAGE -->
-
 <div class="page" id="page-new-audit">
   <div class="page-header">
     <div class="page-title">New Audit</div>
@@ -651,147 +648,143 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         </div>
       </div>
 
-```
-  <!-- APPLIANCES -->
-  <div class="card" style="margin-bottom:20px">
-    <div class="card-title">Appliance Load <span class="badge" id="total-load-badge">0W · 0 Wh</span></div>
-    <div id="appliance-grid"></div>
-  </div>
+      <!-- APPLIANCES -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Appliance Load <span class="badge" id="total-load-badge">0W · 0 Wh</span></div>
+        <div id="appliance-grid"></div>
+      </div>
 
-  <!-- SYSTEM PARAMS -->
-  <div class="card" style="margin-bottom:20px">
-    <div class="card-title">System Parameters</div>
-    <div class="form-row-3">
-      <div class="form-group">
-        <label class="form-label">Battery Type</label>
-        <select class="form-input" id="battery-type">
-          <option value="lithium">Lithium (LiFePO4)</option>
-          <option value="lead">Lead-Acid</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Inverter Brand</label>
-        <select class="form-input" id="inverter-brand">
-          <option>Luminous</option>
-          <option>Felicity</option>
-          <option>Victron</option>
-          <option>Growatt</option>
-          <option>Schneider</option>
-        </select>
+      <!-- SYSTEM PARAMS -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">System Parameters</div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">Battery Type</label>
+            <select class="form-input" id="battery-type">
+              <option value="lithium">Lithium (LiFePO4)</option>
+              <option value="lead">Lead-Acid</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Inverter Brand</label>
+            <select class="form-input" id="inverter-brand">
+              <option>Luminous</option>
+              <option>Felicity</option>
+              <option>Victron</option>
+              <option>Growatt</option>
+              <option>Schneider</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Panel Brand</label>
+            <select class="form-input" id="panel-brand">
+              <option>Canadian Solar</option>
+              <option>Jinko Solar</option>
+              <option>LONGi Solar</option>
+              <option>Risen Energy</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Margin / Markup %</label>
+            <input type="number" class="form-input" id="markup" value="20" min="0" max="100">
+          </div>
+        </div>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Panel Brand</label>
-        <select class="form-input" id="panel-brand">
-          <option>Canadian Solar</option>
-          <option>Jinko Solar</option>
-          <option>LONGi Solar</option>
-          <option>Risen Energy</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Margin / Markup %</label>
-        <input type="number" class="form-input" id="markup" value="20" min="0" max="100">
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- LIVE CALC PANEL -->
-<div>
-  <div class="card" style="margin-bottom:14px;position:sticky;top:20px">
-    <div class="card-title">Live Calculation</div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Total Load<span>Sum of all appliances</span></div>
-      <div class="breakdown-val" id="calc-load">0 W</div>
+    <!-- LIVE CALC PANEL -->
+    <div>
+      <div class="card" style="margin-bottom:14px;position:sticky;top:20px">
+        <div class="card-title">Live Calculation</div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Total Load<span>Sum of all appliances</span></div>
+          <div class="breakdown-val" id="calc-load">0 W</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Total Energy Demand<span>Σ (Device Load × Hours)</span></div>
+          <div class="breakdown-val" id="calc-daily">0 Wh</div>
+        </div>
+        <div class="breakdown-item" style="background:rgba(249,115,22,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">Adjusted Energy Demand<span>+20% system losses</span></div>
+          <div class="breakdown-val" style="color:var(--accent)" id="calc-adjusted">0 Wh</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Panel Capacity<span>Adjusted ÷ sun hrs</span></div>
+          <div class="breakdown-val" id="calc-panel">0 W</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Battery Bank<span>Energy storage needed</span></div>
+          <div class="breakdown-val" id="calc-battery">0 kWh</div>
+        </div>
+        <div class="breakdown-item" style="background:rgba(59,130,246,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">Battery Capacity<span>Adj. Energy ÷ (V × DoD × Eff.)</span></div>
+          <div class="breakdown-val" style="color:var(--blue)" id="calc-batt-ah">0 Ah</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Battery Capacity (Wh)<span>Capacity Ah × Voltage</span></div>
+          <div class="breakdown-val" id="calc-batt-wh">0 Wh</div>
+        </div>
+        <div class="breakdown-item" style="background:rgba(249,115,22,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">Total Battery Energy<span>Capacity Ah × Voltage × Days of Autonomy</span></div>
+          <div class="breakdown-val" style="color:var(--accent)" id="calc-total-batt-energy">0 Wh</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Solar Power Needed<span>Total Battery Energy ÷ Sun hrs</span></div>
+          <div class="breakdown-val" id="calc-solar-power">0 W</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Adjusted Panel Capacity<span>(Solar Power × Energy%) + Solar Power</span></div>
+          <div class="breakdown-val" id="calc-adj-panel">0 W</div>
+        </div>
+        <div class="breakdown-item" style="background:rgba(34,197,94,.05);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">Number of Panels<span>Adj. Capacity ÷ (Panel W × 0.7)</span></div>
+          <div class="breakdown-val" style="color:var(--green)" id="calc-num-panels">0 panels</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Battery Runtime<span>Days of Autonomy × 24 hrs</span></div>
+          <div class="breakdown-val" id="calc-batt-runtime">0 hrs</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Total Batteries<span>Capacity ÷ individual Ah</span></div>
+          <div class="breakdown-val" id="calc-total-batts">0 batteries</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Inverter Size (W)<span>Total Load × Efficiency</span></div>
+          <div class="breakdown-val" id="calc-inverter-w">0 W</div>
+        </div>
+        <div class="breakdown-item" style="background:rgba(234,179,8,.05);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">Inverter Size (kVA)<span>Inverter W ÷ 0.8 power factor ÷ 1000</span></div>
+          <div class="breakdown-val" style="color:var(--yellow)" id="calc-inverter">0 kVA</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Selected Inverter Size<span>Admin override from Settings</span></div>
+          <div class="breakdown-val" id="calc-selected-inv">— kVA</div>
+        </div>
+        <div class="divider"></div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Equipment Cost<span>Before markup</span></div>
+          <div class="breakdown-val" id="calc-equip">₦0</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Installation<span>12% of equipment</span></div>
+          <div class="breakdown-val" id="calc-install">₦0</div>
+        </div>
+        <div class="breakdown-total">
+          <div class="breakdown-total-label">Client Quote Total</div>
+          <div class="breakdown-total-val" id="calc-total">₦0</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="btn btn-primary" style="flex:1" onclick="saveAudit()">💾 Save Audit</button>
+          <button class="btn btn-green" style="flex:1" onclick="generateQuote()">📄 Generate Quote</button>
+        </div>
+      </div>
     </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Total Energy Demand<span>Σ (Device Load × Hours)</span></div>
-      <div class="breakdown-val" id="calc-daily">0 Wh</div>
-    </div>
-    <div class="breakdown-item" style="background:rgba(249,115,22,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-      <div class="breakdown-label">Adjusted Energy Demand<span>+20% system losses</span></div>
-      <div class="breakdown-val" style="color:var(--accent)" id="calc-adjusted">0 Wh</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Panel Capacity<span>Adjusted ÷ sun hrs</span></div>
-      <div class="breakdown-val" id="calc-panel">0 W</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Battery Bank<span>Energy storage needed</span></div>
-      <div class="breakdown-val" id="calc-battery">0 kWh</div>
-    </div>
-    <div class="breakdown-item" style="background:rgba(59,130,246,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-      <div class="breakdown-label">Battery Capacity<span>Adj. Energy ÷ (V × DoD × Eff.)</span></div>
-      <div class="breakdown-val" style="color:var(--blue)" id="calc-batt-ah">0 Ah</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Battery Capacity (Wh)<span>Capacity Ah × Voltage</span></div>
-      <div class="breakdown-val" id="calc-batt-wh">0 Wh</div>
-    </div>
-    <div class="breakdown-item" style="background:rgba(249,115,22,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-      <div class="breakdown-label">Total Battery Energy<span>Capacity Ah × Voltage × Days of Autonomy</span></div>
-      <div class="breakdown-val" style="color:var(--accent)" id="calc-total-batt-energy">0 Wh</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Solar Power Needed<span>Total Battery Energy ÷ Sun hrs</span></div>
-      <div class="breakdown-val" id="calc-solar-power">0 W</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Adjusted Panel Capacity<span>(Solar Power × Energy%) + Solar Power</span></div>
-      <div class="breakdown-val" id="calc-adj-panel">0 W</div>
-    </div>
-    <div class="breakdown-item" style="background:rgba(34,197,94,.05);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-      <div class="breakdown-label">Number of Panels<span>Adj. Capacity ÷ (Panel W × 0.7)</span></div>
-      <div class="breakdown-val" style="color:var(--green)" id="calc-num-panels">0 panels</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Battery Runtime<span>Days of Autonomy × 24 hrs</span></div>
-      <div class="breakdown-val" id="calc-batt-runtime">0 hrs</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Total Batteries<span>Capacity ÷ individual Ah</span></div>
-      <div class="breakdown-val" id="calc-total-batts">0 batteries</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Inverter Size (W)<span>Total Load × Efficiency</span></div>
-      <div class="breakdown-val" id="calc-inverter-w">0 W</div>
-    </div>
-    <div class="breakdown-item" style="background:rgba(234,179,8,.05);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-      <div class="breakdown-label">Inverter Size (kVA)<span>Inverter W ÷ 0.8 power factor ÷ 1000</span></div>
-      <div class="breakdown-val" style="color:var(--yellow)" id="calc-inverter">0 kVA</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Selected Inverter Size<span>Admin override from Settings</span></div>
-      <div class="breakdown-val" id="calc-selected-inv">— kVA</div>
-    </div>
-    <div class="divider"></div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Equipment Cost<span>Before markup</span></div>
-      <div class="breakdown-val" id="calc-equip">₦0</div>
-    </div>
-    <div class="breakdown-item">
-      <div class="breakdown-label">Installation<span>12% of equipment</span></div>
-      <div class="breakdown-val" id="calc-install">₦0</div>
-    </div>
-    <div class="breakdown-total">
-      <div class="breakdown-total-label">Client Quote Total</div>
-      <div class="breakdown-total-val" id="calc-total">₦0</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="btn btn-primary" style="flex:1" onclick="saveAudit()">💾 Save Audit</button>
-      <button class="btn btn-green" style="flex:1" onclick="generateQuote()">📄 Generate Quote</button>
-    </div>
-  </div>
-</div>
-```
-
   </div>
 </div>
 
 <!-- SAVED AUDITS PAGE -->
-
 <div class="page" id="page-audits">
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -806,7 +799,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <!-- QUOTES PAGE -->
-
 <div class="page" id="page-quotes">
   <div class="page-header">
     <div class="page-title">Generated Quotes</div>
@@ -816,7 +808,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <!-- PRICING PAGE -->
-
 <div class="page" id="page-pricing">
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -838,7 +829,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <!-- SETTINGS PAGE -->
-
 <div class="page" id="page-settings">
   <div class="page-header">
     <div class="page-title">Settings</div>
@@ -927,7 +917,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <!-- ADMIN PAGE -->
-
 <div class="page" id="page-admin">
   <div class="page-header">
     <div class="page-title">&#128081; Admin — All Users</div>
@@ -943,7 +932,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div><!-- end app -->
 
 <!-- AUDIT DETAIL MODAL -->
-
 <div class="modal-overlay" id="audit-modal">
   <div class="modal" style="width:700px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -959,7 +947,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 </div>
 
 <!-- QUOTE VIEW MODAL -->
-
 <div class="modal-overlay" id="quote-modal">
   <div class="modal" style="width:780px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -1149,12 +1136,12 @@ function renderApplianceGrid() {
       <td><span class="appl-name">${a.icon} ${a.name}</span><span class="appl-watts-badge">${a.watts}W</span></td>
       <td>
         <div class="appl-qty-ctrl">
-          <button class="qty-btn" onclick="adjustQty('${a.id}',-1)">−</button>
+          <button class="qty-btn" onclick="state.appliances['${a.id}'].qty = Math.max(0, state.appliances['${a.id}'].qty - 1); document.getElementById('qty-${a.id}').textContent = state.appliances['${a.id}'].qty; calculateSystem();">−</button>
           <div class="qty-val" id="qty-${a.id}">${d.qty}</div>
-          <button class="qty-btn" onclick="adjustQty('${a.id}',1)">+</button>
+          <button class="qty-btn" onclick="state.appliances['${a.id}'].qty += 1; document.getElementById('qty-${a.id}').textContent = state.appliances['${a.id}'].qty; calculateSystem();">+</button>
         </div>
       </td>
-      <td><input class="hours-input" type="number" id="hrs-${a.id}" value="${d.hours}" min="0" max="24" onchange="updateHours('${a.id}',this.value)"></td>
+      <td><input class="hours-input" type="number" id="hrs-${a.id}" value="${d.hours}" min="0" max="24" onchange="state.appliances['${a.id}'].hours = Math.max(0, Math.min(24, this.value)); calculateSystem();"></td>
       <td><span class="appl-device-load" id="dload-${a.id}">${deviceLoad} W</span></td>
       <td><span class="appl-energy" id="denergy-${a.id}">${deviceEnergy} Wh</span></td>
     </tr>`;
@@ -1974,7 +1961,68 @@ document.querySelectorAll('#battery-type,#markup').forEach(el => {
 // Fallback: run init directly if Firebase module hasn't fired yet
 // ============================================================
 setTimeout(() => { if (!window._fbLoaded) init(); }, 2000);
-</script>
 
+// ============================================================
+// DOM READY HOOK — Ensure calculations run on page load
+// ============================================================
+function calculateSystem() {
+  let totalLoad = 0;
+  let totalEnergy = 0;
+
+  DEFAULT_APPLIANCES.forEach(app => {
+    const item = state.appliances[app.id];
+    if (!item) return;
+    const load = app.watts * (item.qty || 0);
+    const energy = load * (item.hours || 0);
+    totalLoad += load;
+    totalEnergy += energy;
+
+    // Update each row's device load + energy live
+    const dloadEl = document.getElementById('dload-' + app.id);
+    const denergyEl = document.getElementById('denergy-' + app.id);
+    if (dloadEl) dloadEl.textContent = load + ' W';
+    if (denergyEl) denergyEl.textContent = energy + ' Wh';
+  });
+
+  const adjusted = totalEnergy * 1.2;
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  // Live tfoot totals
+  set('tfoot-load',     fmt(totalLoad) + ' W');
+  set('tfoot-energy',   fmt(totalEnergy) + ' Wh');
+  set('tfoot-adjusted', fmt(adjusted) + ' Wh  /  ' + (adjusted/1000).toFixed(2) + ' kWh');
+  set('total-load-badge', fmt(totalLoad) + 'W load · ' + (adjusted/1000).toFixed(2) + ' kWh adjusted');
+
+  // Live calc panel basics
+  set('calc-load',     fmt(totalLoad) + ' W');
+  set('calc-daily',    (totalEnergy/1000).toFixed(2) + ' kWh (' + fmt(totalEnergy) + ' Wh)');
+  set('calc-adjusted', (adjusted/1000).toFixed(2) + ' kWh (' + fmt(adjusted) + ' Wh)');
+
+  // Now run the full system calculation for battery, panels, inverter, cost
+  if (typeof window.recalculate_original === 'function') {
+    window.recalculate_original();
+  }
+}
+
+function renderAppliances() {
+  renderApplianceGrid();
+  calculateSystem();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOMContentLoaded fired');
+  initState();
+  loadFromStorage();
+  renderAppliances();
+});
+
+// Also hook recalculate to call calculateSystem
+const originalRecalculate = recalculate;
+window.recalculate = function() {
+  calculateSystem();
+  originalRecalculate.call(this);
+};
+</script>
 </body>
 </html>

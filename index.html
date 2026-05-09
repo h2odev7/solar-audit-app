@@ -491,8 +491,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-val" id="calc-inverter-w">0 W</div>
         </div>
         <div class="breakdown-item" style="background:rgba(234,179,8,.05);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-          <div class="breakdown-label">Inverter Size (kVA)<span>Inverter W × 0.8 ÷ 1000</span></div>
+          <div class="breakdown-label">Inverter Size (kVA)<span>Inverter W ÷ 0.8 power factor ÷ 1000</span></div>
           <div class="breakdown-val" style="color:var(--yellow)" id="calc-inverter">0 kVA</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-label">Selected Inverter Size<span>Admin override from Settings</span></div>
+          <div class="breakdown-val" id="calc-selected-inv">— kVA</div>
         </div>
         <div class="divider"></div>
         <div class="breakdown-item">
@@ -614,9 +618,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
       <div class="divider"></div>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Inverter Parameters</div>
-      <div class="form-group"><label class="form-label">Inverter Efficiency Factor</label>
-        <input type="number" class="form-input" id="cfg-inv-eff" value="1.25" min="0.1" step="0.05">
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Applied as multiplier to Total Load (e.g. 1.25 = 25% overhead)</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Inverter Efficiency Factor</label>
+          <input type="number" class="form-input" id="cfg-inv-eff" value="1.25" min="0.1" step="0.05">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Multiplier applied to Total Load</div>
+        </div>
+        <div class="form-group"><label class="form-label">Selected Inverter Size (kVA)</label>
+          <input type="number" class="form-input" id="cfg-selected-inv-kva" value="5.0" min="0.5" step="0.5">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Manual override — shown on final report</div>
+        </div>
       </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save Config</button>
     </div>
@@ -715,7 +725,8 @@ const DEFAULT_CONFIG = {
   individualBattAh: 200,
   individualPanelW: 400,
   energyUsedPct: 0.90,
-  inverterEfficiency: 1.25
+  inverterEfficiency: 1.25,
+  selectedInverterKVA: 5.0
 };
 
 const DEFAULT_COMPANY = {
@@ -910,8 +921,8 @@ function calcSystem(appliances, opts) {
   // Inverter Size (W) = Total Load × Inverter Efficiency
   const inverterSizeW = totalLoad * (cfg.inverterEfficiency || 1.25);
 
-  // Inverter Size (kVA) = Inverter Size (W) × 0.8 ÷ 1000
-  const inverterKVA = Math.round((inverterSizeW * 0.8) / 1000 * 10) / 10;
+  // Inverter Size (kVA) = Inverter Size (W) ÷ Power Factor (0.8) ÷ 1000
+  const inverterKVA = Math.round((inverterSizeW / 0.8) / 1000 * 10) / 10;
 
   // Battery Capacity (Ah) = Adjusted Energy Demand (Wh) / (Voltage × DoD × Efficiency)
   const battCapacityAh = adjustedEnergyWh / (cfg.battVoltage * cfg.battDod * cfg.battEfficiency);
@@ -950,7 +961,8 @@ function calcSystem(appliances, opts) {
   const markupAmt = subtotal * markup;
   const total = subtotal + markupAmt;
 
-  return { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, totalBattEnergyWh, solarPowerW, adjustedPanelW, numPanels, inverterSizeW, inverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+  const selectedInverterKVA = cfg.selectedInverterKVA || 5.0;
+  return { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, totalBattEnergyWh, solarPowerW, adjustedPanelW, numPanels, inverterSizeW, inverterKVA, selectedInverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
 }
 
 function recalculate() {
@@ -990,7 +1002,8 @@ function recalculate() {
   document.getElementById('calc-batt-runtime').textContent = Math.round(r.battRuntimeHrs).toLocaleString() + ' hrs';
   document.getElementById('calc-total-batts').textContent = r.totalBatteries + ' batteries  (' + (state.config.individualBattAh||200) + 'Ah each)';
   document.getElementById('calc-inverter-w').textContent = fmt(Math.round(r.inverterSizeW)) + ' W';
-  document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(2) + ' kVA';
+  document.getElementById('calc-inverter').textContent = r.inverterKVA.toFixed(2) + ' kVA  (calc.)';
+  document.getElementById('calc-selected-inv').textContent = (r.selectedInverterKVA||0).toFixed(1) + ' kVA  (selected)';
   document.getElementById('calc-equip').textContent = '₦' + fmt(r.equipTotal);
   document.getElementById('calc-install').textContent = '₦' + fmt(r.cInstall);
   document.getElementById('calc-total').textContent = '₦' + fmt(r.total);
@@ -1077,7 +1090,7 @@ function generateQuote(auditOverride) {
       <tr><td>Adjusted Panel Capacity<br><span style="font-size:11px;color:#9ca3af">Solar Power × ${Math.round((state.config.energyUsedPct||0.9)*100)}% energy used</span></td><td><strong>${fmt(Math.round(r.adjustedPanelW||0))} W</strong></td></tr>
       <tr style="background:#f0fdf4"><td><strong>Number of Solar Panels</strong><br><span style="font-size:11px;color:#9ca3af">${state.config.individualPanelW||400}W panels × 0.7 derating</span></td><td><strong>${r.numPanels||0} panels</strong></td></tr>
       <tr><td>Inverter Size (W)<br><span style="font-size:11px;color:#9ca3af">Total Load × Efficiency factor</span></td><td>${fmt(Math.round(r.inverterSizeW||0))} W</td></tr>
-      <tr><td><strong>Inverter Size (kVA)</strong><br><span style="font-size:11px;color:#9ca3af">Inverter W × 0.8 power factor ÷ 1000</span></td><td><strong>${(r.inverterKVA||0).toFixed(2)} kVA (${audit.inverterBrand})</strong></td></tr>
+      <tr><td><strong>Inverter Size (kVA)</strong><br><span style="font-size:11px;color:#9ca3af">Inverter W ÷ 0.8 power factor ÷ 1000</span></td><td><strong>${(r.inverterKVA||0).toFixed(2)} kVA (${audit.inverterBrand})</strong></td></tr>
       <tr><td>Backup Duration</td><td><strong>${audit.backupDays} day(s)</strong></td></tr>
     </table>
     <div class="quote-section-title">Cost Breakdown</div>
@@ -1096,6 +1109,31 @@ function generateQuote(auditOverride) {
       <div class="quote-total-row"><span>Installation (${state.config.installPct*100}%)</span><span>₦${fmt(r.cInstall)}</span></div>
       ${audit.markup>0?`<div class="quote-total-row"><span>Margin (${audit.markup}%)</span><span>₦${fmt(r.markupAmt)}</span></div>`:''}
       <div class="quote-total-final"><span>TOTAL INVESTMENT</span><span>₦${fmt(r.total)}</span></div>
+    </div>
+    <div style="margin-top:28px">
+      <div class="quote-section-title">Audit Report Summary</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
+        <tr style="background:#f97316">
+          <th style="padding:10px 14px;color:white;text-align:left;font-weight:700;border-radius:4px 0 0 0">Parameter</th>
+          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700">Calculated</th>
+          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700;border-radius:0 4px 0 0">Selected / Qty</th>
+        </tr>
+        <tr style="background:#fff7ed">
+          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #fed7aa">⚡ System Load / Inverter Size</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;color:#374151">${fmt(Math.round(r.inverterSizeW||0))} W &nbsp;|&nbsp; ${(r.inverterKVA||0).toFixed(2)} kVA (calc.)</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;font-weight:700;color:#f97316;font-size:16px">${(r.selectedInverterKVA||0).toFixed(1)} kVA</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #e5e7eb">🔋 Energy Storage / No. of Batteries</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #e5e7eb;color:#374151">${fmt(Math.round(r.totalBattEnergyWh||0))} Wh &nbsp;|&nbsp; ${Math.ceil(r.battCapacityAh||0)} Ah</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #e5e7eb;font-weight:700;color:#f97316;font-size:16px">${r.totalBatteries||0} batteries</td>
+        </tr>
+        <tr style="background:#fff7ed">
+          <td style="padding:12px 14px;font-weight:700;color:#111">☀️ Peak Solar Power / No. of Panels</td>
+          <td style="padding:12px 14px;text-align:center;color:#374151">${fmt(Math.round(r.solarPowerW||0))} W &nbsp;|&nbsp; ${fmt(Math.round(r.adjustedPanelW||0))} W adj.</td>
+          <td style="padding:12px 14px;text-align:center;font-weight:700;color:#f97316;font-size:16px">${r.numPanels||0} panels</td>
+        </tr>
+      </table>
     </div>
     <div class="quote-footer">
       ${co.name} · ${co.address} · ${co.web}<br>
@@ -1318,6 +1356,7 @@ function openAuditModal(id) {
         <div class="breakdown-item"><div class="breakdown-label">Number of Panels</div><div class="breakdown-val" style="color:var(--green)">${r.numPanels||0} panels</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Inverter Size (W)</div><div class="breakdown-val">${fmt(Math.round(r.inverterSizeW||0))} W</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Inverter Size (kVA)</div><div class="breakdown-val" style="color:var(--yellow)">${(r.inverterKVA||0).toFixed(2)} kVA</div></div>
+        <div class="breakdown-item"><div class="breakdown-label">Selected Inverter</div><div class="breakdown-val">${(r.selectedInverterKVA||0).toFixed(1)} kVA</div></div>
       </div>
     </div>
     <div class="breakdown-total" style="margin-top:16px">
@@ -1438,6 +1477,7 @@ function populateSettingsForm() {
   document.getElementById('cfg-panel-w').value = cfg.individualPanelW||400;
   document.getElementById('cfg-energy-used-pct').value = (cfg.energyUsedPct||0.90)*100;
   document.getElementById('cfg-inv-eff').value = cfg.inverterEfficiency||1.25;
+  document.getElementById('cfg-selected-inv-kva').value = cfg.selectedInverterKVA||5.0;
 }
 
 function saveSettings() {
@@ -1460,6 +1500,7 @@ function saveSettings() {
     individualPanelW: parseFloat(document.getElementById('cfg-panel-w').value)||400,
     energyUsedPct: (parseFloat(document.getElementById('cfg-energy-used-pct').value)||90) / 100,
     inverterEfficiency: parseFloat(document.getElementById('cfg-inv-eff').value)||1.25,
+    selectedInverterKVA: parseFloat(document.getElementById('cfg-selected-inv-kva').value)||5.0,
   };
   saveToStorage();
   recalculate();

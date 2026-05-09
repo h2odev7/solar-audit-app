@@ -2033,12 +2033,25 @@ function calculateSystem() {
   // ─── 6. Cost ───
   const prices = state.prices?.user || {};
   const markup = (parseFloat(document.getElementById('markup')?.value) || 0) / 100;
-  const cPanels = numPanels * (prices.panel || 0);
-  const cBattery = totalBatteries * (prices.battery || 0);
-  const cInverter = (prices.inverter || 0);
+
+  // Panels: price per watt × total wattage
+  const totalPanelW = numPanels * indivPanelW;
+  const cPanels = totalPanelW * (prices.panelPerWatt || 0);
+
+  // Batteries: price per kWh × total battery kWh
+  const battPricePerKWh = battType === 'lithium'
+    ? (prices.batteryLithiumPerKWh || 0)
+    : (prices.batteryLeadPerKWh || 0);
+  const totalBattKWh = (totalBatteries * indivBattAh * battVoltage) / 1000;
+  const cBattery = totalBattKWh * battPricePerKWh;
+
+  // Inverter: price per kVA × selected kVA
+  const cInverter = selectedInverterKVA * (prices.inverterPerKVA || 0);
+
   const cCabling = (prices.cabling || 0);
   const cMounting = (prices.mounting || 0);
   const cAccessories = (prices.accessories || 0);
+
   const equipTotal = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
   const cInstall = equipTotal * (cfg.installPct || 0.12);
   const subtotal = equipTotal + cInstall;

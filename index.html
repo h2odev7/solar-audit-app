@@ -1030,8 +1030,11 @@ const DEFAULT_COMPANY = {
 // ============================================================
 // STATE
 // ============================================================
+// Pre-populate appliances so state is never empty
+const _defaultAppliances = {};
+// Will be filled after DEFAULT_APPLIANCES is defined — see initState()
 let state = {
-  appliances: {},     // {id: qty}
+  appliances: {},
   audits: [],
   quotes: [],
   prices: JSON.parse(JSON.stringify(DEFAULT_PRICES)),
@@ -1040,6 +1043,13 @@ let state = {
   currentAuditId: null,
   activePriceTab: 'user',
 };
+function initState() {
+  DEFAULT_APPLIANCES.forEach(a => {
+    if (!state.appliances[a.id] || typeof state.appliances[a.id] !== 'object') {
+      state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
+    }
+  });
+}
 
 let currentModalAudit = null;
 
@@ -1053,7 +1063,9 @@ function init() {
   if (window._cloudPrices)  state.prices  = { ...DEFAULT_PRICES,  ...window._cloudPrices };
   if (window._cloudAudits)  state.audits  = window._cloudAudits;
   if (window._cloudQuotes)  state.quotes  = window._cloudQuotes;
-  renderApplianceGrid();
+  initState();           // ← ensure all appliances are valid objects
+  loadFromStorage();     // ← apply any saved state
+  renderApplianceGrid(); // ← build table with correct data
   populateSettingsForm();
   recalculate();
   updateDashboard();
@@ -1072,8 +1084,12 @@ function loadFromStorage() {
     state.config = parsed.config || { ...DEFAULT_CONFIG };
     state.company = parsed.company || { ...DEFAULT_COMPANY };
   }
+  // Ensure every appliance has a valid {qty, hours} object
   DEFAULT_APPLIANCES.forEach(a => {
-    if (state.appliances[a.id] === undefined) state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
+    const existing = state.appliances[a.id];
+    if (!existing || typeof existing !== 'object' || existing.qty === undefined) {
+      state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
+    }
   });
 }
 
@@ -1159,14 +1175,23 @@ function renderApplianceGrid() {
 }
 
 function adjustQty(id, delta) {
+  if (!state.appliances[id] || typeof state.appliances[id] !== 'object') {
+    const a = DEFAULT_APPLIANCES.find(x => x.id === id);
+    state.appliances[id] = { qty: 0, hours: a ? a.defaultHours : 8 };
+  }
   const d = state.appliances[id];
   d.qty = Math.max(0, d.qty + delta);
-  document.getElementById('qty-'+id).textContent = d.qty;
+  const qtyEl = document.getElementById('qty-'+id);
+  if (qtyEl) qtyEl.textContent = d.qty;
   updateRowCalc(id);
   recalculate();
 }
 
 function updateHours(id, val) {
+  if (!state.appliances[id] || typeof state.appliances[id] !== 'object') {
+    const a = DEFAULT_APPLIANCES.find(x => x.id === id);
+    state.appliances[id] = { qty: 0, hours: a ? a.defaultHours : 8 };
+  }
   state.appliances[id].hours = Math.max(0, Math.min(24, parseFloat(val)||0));
   updateRowCalc(id);
   recalculate();
@@ -1200,7 +1225,9 @@ function calcSystem(appliances, opts) {
   const deviceRows = [];
 
   DEFAULT_APPLIANCES.forEach(a => {
-    const d = appliances[a.id] || { qty: 0, hours: a.defaultHours };
+    const raw = appliances[a.id];
+    const d = (raw && typeof raw === 'object' && raw.qty !== undefined)
+      ? raw : { qty: 0, hours: a.defaultHours };
     const deviceLoad = d.qty * a.watts;           // W
     const deviceEnergy = deviceLoad * d.hours;    // Wh
     totalLoad += deviceLoad;

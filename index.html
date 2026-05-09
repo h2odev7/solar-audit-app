@@ -1595,11 +1595,7 @@ function updateBadges() {
 // ============================================================
 document.querySelectorAll('#battery-type,#markup').forEach(el => {
   el && el.addEventListener('input', recalculate);
-});"
-
-// Recalculate on battery type change specifically (it affects total batteries)
-const battTypeEl = document.getElementById('battery-type');
-if (battTypeEl) battTypeEl.addEventListener('change', recalculate);
+});
 
 // ============================================================
 // BOOT

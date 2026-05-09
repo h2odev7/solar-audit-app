@@ -1212,11 +1212,11 @@ function updateRowCalc(id) {
 // CALCULATION ENGINE — EXACT EXCEL LOGIC
 // ============================================================
 function calcSystem(appliances, opts) {
+  const cfg = state.config;
   const backupDays = cfg.daysOfAutonomy || 1;
   const batteryType = opts.batteryType || 'lithium';
   const markup = (opts.markup || 0) / 100;
   const prices = state.prices.user;
-  const cfg = state.config;
 
   // Per-device: Device Load (W) = Watts × Qty
   // Per-device: Device Energy (Wh) = Device Load × Hours

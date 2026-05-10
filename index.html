@@ -46,14 +46,25 @@ onAuthStateChanged(auth, async (user) => {
     // Fetch role from Firestore
     const snap = await getDoc(doc(db, 'users', user.uid));
     if (!snap.exists()) {
-      // User has no profile — sign them out (accounts must be created by admin)
       await signOut(auth);
       showAuthError('Account not found. Contact your administrator.');
+      document.getElementById('btn-email-login').disabled = false;
+      document.getElementById('btn-email-login').textContent = 'Sign In';
       return;
     }
-    const profile = snap.data();
-    currentRole = profile.role || 'staff';
-    currentName = profile.name || user.email.split('@')[0];
+    const profile  = snap.data();
+    currentRole    = profile.role || 'staff';
+    currentName    = profile.name || user.email.split('@')[0];
+
+    // Verify role matches what was selected on login screen
+    const attemptedRole = window._selectedLoginRole || 'staff';
+    if (attemptedRole === 'admin' && currentRole !== 'admin') {
+      await signOut(auth);
+      showAuthError('You do not have admin access.');
+      document.getElementById('btn-email-login').disabled = false;
+      document.getElementById('btn-email-login').textContent = 'Sign In';
+      return;
+    }
 
     // Expose globals for non-module JS
     window._currentUser = { uid: user.uid, email: user.email, name: currentName, role: currentRole };
@@ -62,12 +73,11 @@ onAuthStateChanged(auth, async (user) => {
     authScreen.style.display = 'none';
     appEl.style.display      = 'flex';
     document.getElementById('user-display-name').textContent  = currentName;
-    document.getElementById('user-display-email').textContent = currentRole === 'admin' ? 'Administrator' : 'Staff';
+    document.getElementById('user-display-email').textContent = currentRole === 'admin' ? '👑 Administrator' : '👤 Staff';
     document.getElementById('user-avatar-initial').textContent = currentName.charAt(0).toUpperCase();
 
     // Role-based nav visibility
-    const adminOnlyEls = document.querySelectorAll('.admin-only');
-    adminOnlyEls.forEach(el => {
+    document.querySelectorAll('.admin-only').forEach(el => {
       el.style.display = currentRole === 'admin' ? '' : 'none';
     });
 
@@ -86,11 +96,13 @@ onAuthStateChanged(auth, async (user) => {
 window.loginWithEmail = async () => {
   const email = document.getElementById('auth-email').value.trim();
   const pass  = document.getElementById('auth-password').value;
+  const attemptedRole = window._selectedLoginRole || 'staff';
   if (!email || !pass) return showAuthError('Please enter your email and password.');
   const btn = document.getElementById('btn-email-login');
   btn.disabled = true; btn.textContent = 'Signing in...';
   try {
     await signInWithEmailAndPassword(auth, email, pass);
+    // role check happens in onAuthStateChanged
   } catch (err) {
     btn.disabled = false; btn.textContent = 'Sign In';
     showAuthError(
@@ -548,8 +560,21 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div style="text-align:center;margin-bottom:28px">
       <div style="width:52px;height:52px;background:#f97316;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px">⚡</div>
       <div style="font-family:Syne,sans-serif;font-size:24px;font-weight:800;color:#f1f5f9">SolarIQ</div>
-      <div style="font-size:13px;color:#64748b;margin-top:4px">Energy Audit System — Staff Login</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Energy Audit System</div>
     </div>
+
+    <!-- Role toggle -->
+    <div style="display:flex;background:#0a0e17;border-radius:10px;padding:4px;margin-bottom:20px;gap:4px">
+      <button id="role-btn-staff" onclick="selectLoginRole('staff')"
+        style="flex:1;padding:8px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:#1a2235;color:#94a3b8;transition:all .15s">
+        👤 Staff
+      </button>
+      <button id="role-btn-admin" onclick="selectLoginRole('admin')"
+        style="flex:1;padding:8px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:transparent;color:#64748b;transition:all .15s">
+        👑 Admin
+      </button>
+    </div>
+
     <div id="auth-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px"></div>
     <div style="margin-bottom:12px">
       <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Email</label>
@@ -563,6 +588,25 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div style="margin-top:16px;text-align:center;font-size:12px;color:#475569">Contact your administrator to create or reset your account.</div>
   </div>
 </div>
+
+<script>
+  let _selectedLoginRole = 'staff';
+  window._selectedLoginRole = 'staff';
+  function selectLoginRole(role) {
+    _selectedLoginRole = role;
+    window._selectedLoginRole = role;
+    const staffBtn = document.getElementById('role-btn-staff');
+    const adminBtn = document.getElementById('role-btn-admin');
+    if (role === 'staff') {
+      staffBtn.style.background = '#1a2235'; staffBtn.style.color = '#f1f5f9';
+      adminBtn.style.background = 'transparent'; adminBtn.style.color = '#64748b';
+    } else {
+      adminBtn.style.background = '#f97316'; adminBtn.style.color = '#fff';
+      staffBtn.style.background = 'transparent'; staffBtn.style.color = '#64748b';
+    }
+  }
+  selectLoginRole('staff');
+</script>
 
 <div class="app" id="app" style="display:none">
 

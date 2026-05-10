@@ -4,494 +4,422 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SolarIQ — Energy Audit System</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut, onAuthStateChanged, updateProfile
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {
-  getFirestore, doc, setDoc, getDoc, updateDoc,
-  collection, addDoc, getDocs, deleteDoc, query, orderBy, where
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBBUXYZ8zR78rb3cCfe1QVRTGdFjAmHAbg",
-  authDomain: "solariq-app.firebaseapp.com",
-  projectId: "solariq-app",
-  storageBucket: "solariq-app.firebasestorage.app",
-  messagingSenderId: "1033776808311",
-  appId: "1:1033776808311:web:0cbf53cc64e9f530e4e172"
-};
-
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
-
-// ── SESSION STATE ─────────────────────────────────────────────
-let currentUser = null;
-let currentRole = null;   // 'admin' | 'staff'
-let currentName = '';
-
-// ── AUTH STATE ────────────────────────────────────────────────
-onAuthStateChanged(auth, async (user) => {
-  const authScreen = document.getElementById('auth-screen');
-  const appEl      = document.getElementById('app');
-  if (user) {
-    currentUser = user;
-    // Fetch role from Firestore
-    const snap = await getDoc(doc(db, 'users', user.uid));
-    if (!snap.exists()) {
-      await signOut(auth);
-      showAuthError('Account not found. Contact your administrator.');
-      document.getElementById('btn-email-login').disabled = false;
-      document.getElementById('btn-email-login').textContent = 'Sign In';
-      return;
-    }
-    const profile  = snap.data();
-    currentRole    = profile.role || 'staff';
-    currentName    = profile.name || user.email.split('@')[0];
-
-    // Verify role matches what was selected on login screen
-    const attemptedRole = window._selectedLoginRole || 'staff';
-    if (attemptedRole === 'admin' && currentRole !== 'admin') {
-      await signOut(auth);
-      showAuthError('You do not have admin access.');
-      document.getElementById('btn-email-login').disabled = false;
-      document.getElementById('btn-email-login').textContent = 'Sign In';
-      return;
-    }
-
-    // Expose globals for non-module JS
-    window._currentUser = { uid: user.uid, email: user.email, name: currentName, role: currentRole };
-
-    // Update UI
-    authScreen.style.display = 'none';
-    appEl.style.display      = 'flex';
-    document.getElementById('user-display-name').textContent  = currentName;
-    document.getElementById('user-display-email').textContent = currentRole === 'admin' ? '👑 Administrator' : '👤 Staff';
-    document.getElementById('user-avatar-initial').textContent = currentName.charAt(0).toUpperCase();
-
-    // Role-based nav visibility
-    document.querySelectorAll('.admin-only').forEach(el => {
-      el.style.display = currentRole === 'admin' ? '' : 'none';
-    });
-
-    await loadCloudData();
-    window._fbLoaded = true;
-    if (window.appReady) window.appReady();
-  } else {
-    currentUser = null; currentRole = null;
-    window._currentUser = null;
-    authScreen.style.display = 'flex';
-    appEl.style.display      = 'none';
-  }
-});
-
-// ── LOGIN (email/password only — no self sign-up) ─────────────
-window.loginWithEmail = async () => {
-  const email = document.getElementById('auth-email').value.trim();
-  const pass  = document.getElementById('auth-password').value;
-  const attemptedRole = window._selectedLoginRole || 'staff';
-  if (!email || !pass) return showAuthError('Please enter your email and password.');
-  const btn = document.getElementById('btn-email-login');
-  btn.disabled = true; btn.textContent = 'Signing in...';
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-    // role check happens in onAuthStateChanged
-  } catch (err) {
-    btn.disabled = false; btn.textContent = 'Sign In';
-    showAuthError(
-      (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')
-        ? 'Incorrect email or password.' : err.message
-    );
-  }
-};
-
-// ── SIGN OUT ─────────────────────────────────────────────────
-window.signOutUser = async () => {
-  if (!confirm('Sign out?')) return;
-  await signOut(auth);
-  window.location.reload();
-};
-
-function showAuthError(msg) {
-  const el = document.getElementById('auth-error');
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
-}
-
-// ── LOAD CLOUD DATA ───────────────────────────────────────────
-async function loadCloudData() {
-  if (!currentUser) return;
-  try {
-    setCloudStatus('Syncing...');
-
-    // Config/company/prices always from current user's profile
-    const [cfgSnap, coSnap, prSnap] = await Promise.all([
-      getDoc(doc(db, 'users', currentUser.uid, 'meta', 'config')),
-      getDoc(doc(db, 'users', currentUser.uid, 'meta', 'company')),
-      getDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices')),
-    ]);
-    if (cfgSnap.exists()) window._cloudConfig  = cfgSnap.data();
-    if (coSnap.exists())  window._cloudCompany = coSnap.data();
-    if (prSnap.exists())  window._cloudPrices  = prSnap.data();
-
-    if (currentRole === 'admin') {
-      // Admin loads ALL audits and quotes across all users
-      const usersSnap = await getDocs(collection(db, 'users'));
-      let allAudits = [], allQuotes = [];
-      for (const userDoc of usersSnap.docs) {
-        const uid = userDoc.id;
-        const udata = userDoc.data();
-        const [aSnap, qSnap] = await Promise.all([
-          getDocs(query(collection(db, 'users', uid, 'audits'), orderBy('createdAt', 'desc'))),
-          getDocs(query(collection(db, 'users', uid, 'quotes'), orderBy('createdAt', 'desc'))),
-        ]);
-        aSnap.docs.forEach(d => allAudits.push({ id: d.id, ...d.data(), _ownerUid: uid, _ownerName: udata.name || udata.email || uid }));
-        qSnap.docs.forEach(d => allQuotes.push({ id: d.id, ...d.data(), _ownerUid: uid, _ownerName: udata.name || udata.email || uid }));
-      }
-      window._cloudAudits = allAudits;
-      window._cloudQuotes = allQuotes;
-    } else {
-      // Staff loads own audits/quotes only
-      const [audSnap, qSnap] = await Promise.all([
-        getDocs(query(collection(db, 'users', currentUser.uid, 'audits'), orderBy('createdAt', 'desc'))),
-        getDocs(query(collection(db, 'users', currentUser.uid, 'quotes'), orderBy('createdAt', 'desc'))),
-      ]);
-      window._cloudAudits = audSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      window._cloudQuotes = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-    setCloudStatus('Synced ✓', 3000);
-  } catch(e) {
-    console.error('Load error:', e);
-    setCloudStatus('Offline');
-  }
-}
-
-// ── SAVE AUDIT ────────────────────────────────────────────────
-window.cloudSaveAudit = async (audit) => {
-  if (!currentUser) return null;
-  try {
-    const { id, ...data } = audit;
-    // Tag audit with creator info
-    data.createdBy = { uid: currentUser.uid, name: currentName, role: currentRole };
-    const ref = await addDoc(collection(db, 'users', currentUser.uid, 'audits'), data);
-    setCloudStatus('Saved ✓', 2000);
-    return ref.id;
-  } catch(e) { console.error('Save audit:', e); return null; }
-};
-
-// ── DELETE AUDIT (admin only) ─────────────────────────────────
-window.cloudDeleteAudit = async (id, ownerUid) => {
-  if (!currentUser) return;
-  // Staff can only delete their own; admin can delete anyone's
-  const targetUid = (currentRole === 'admin' && ownerUid) ? ownerUid : currentUser.uid;
-  try { await deleteDoc(doc(db, 'users', targetUid, 'audits', id)); } catch(e) { console.error(e); }
-};
-
-// ── DELETE QUOTE (admin only) ─────────────────────────────────
-window.cloudDeleteQuote = async (id, ownerUid) => {
-  if (!currentUser) return;
-  const targetUid = (currentRole === 'admin' && ownerUid) ? ownerUid : currentUser.uid;
-  try { await deleteDoc(doc(db, 'users', targetUid, 'quotes', id)); } catch(e) { console.error(e); }
-};
-
-// ── SAVE QUOTE ────────────────────────────────────────────────
-window.cloudSaveQuote = async (quote) => {
-  if (!currentUser) return null;
-  try {
-    const { id, ...data } = quote;
-    data.createdBy = { uid: currentUser.uid, name: currentName, role: currentRole };
-    const ref = await addDoc(collection(db, 'users', currentUser.uid, 'quotes'), data);
-    return ref.id;
-  } catch(e) { console.error('Save quote:', e); return null; }
-};
-
-// ── SAVE SETTINGS (admin only) ────────────────────────────────
-window.cloudSaveSettings = async (config, company, prices) => {
-  if (!currentUser || currentRole !== 'admin') return;
-  try {
-    await Promise.all([
-      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'),  config),
-      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'company'), company),
-      setDoc(doc(db, 'users', currentUser.uid, 'meta', 'prices'),  prices),
-    ]);
-  } catch(e) { console.error('Save settings:', e); }
-};
-
-// ── ADMIN: CREATE STAFF ACCOUNT ───────────────────────────────
-window.adminCreateStaff = async () => {
-  if (currentRole !== 'admin') return;
-  const name  = document.getElementById('new-staff-name').value.trim();
-  const email = document.getElementById('new-staff-email').value.trim();
-  const pass  = document.getElementById('new-staff-pass').value;
-  const role  = document.getElementById('new-staff-role').value;
-  const errEl = document.getElementById('staff-create-error');
-  errEl.style.display = 'none';
-  if (!name || !email || !pass) { errEl.textContent = 'All fields required.'; errEl.style.display = 'block'; return; }
-  if (pass.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
-  const btn = document.getElementById('btn-create-staff');
-  btn.disabled = true; btn.textContent = 'Creating...';
-  try {
-    // Create Firebase Auth account
-    const res = await createUserWithEmailAndPassword(auth, email, pass);
-    await updateProfile(res.user, { displayName: name });
-    // Write role to Firestore
-    await setDoc(doc(db, 'users', res.user.uid), {
-      name, email, role,
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser.uid
-    });
-    // Sign admin back in (createUserWithEmailAndPassword switches active user)
-    await signOut(auth);
-    await signInWithEmailAndPassword(auth, currentUser.email, '');
-    // Can't re-auth silently — reload instead
-    document.getElementById('new-staff-name').value  = '';
-    document.getElementById('new-staff-email').value = '';
-    document.getElementById('new-staff-pass').value  = '';
-    btn.disabled = false; btn.textContent = 'Create Account';
-    showStaffCreatedToast(name, role);
-    loadAdminView();
-  } catch(err) {
-    btn.disabled = false; btn.textContent = 'Create Account';
-    errEl.textContent = err.code === 'auth/email-already-in-use'
-      ? 'Email already in use.' : err.message;
-    errEl.style.display = 'block';
-  }
-};
-
-function showStaffCreatedToast(name, role) {
-  const t = document.getElementById('staff-toast');
-  if (!t) return;
-  t.textContent = `${role === 'admin' ? 'Admin' : 'Staff'} account created for ${name}`;
-  t.style.display = 'block';
-  setTimeout(() => { t.style.display = 'none'; }, 3500);
-}
-
-// ── ADMIN: LOAD ALL STAFF VIEW ────────────────────────────────
-window.loadAdminView = async () => {
-  if (currentRole !== 'admin') return;
-  const list = document.getElementById('admin-users-list');
-  list.innerHTML = '<div class="empty-state"><div class="empty-title">Loading...</div></div>';
-  try {
-    const usersSnap = await getDocs(collection(db, 'users'));
-    list.innerHTML = '';
-    for (const userDoc of usersSnap.docs) {
-      const uid   = userDoc.id;
-      const udata = userDoc.data();
-      const audSnap = await getDocs(collection(db, 'users', uid, 'audits'));
-      const div = document.createElement('div');
-      div.className = 'audit-item';
-      const roleLabel = udata.role === 'admin' ? '👑 Admin' : '👤 Staff';
-      const joined = udata.createdAt ? new Date(udata.createdAt).toLocaleDateString() : '—';
-      div.innerHTML = `
-        <div class="audit-icon">${udata.role === 'admin' ? '👑' : '👤'}</div>
-        <div class="audit-meta">
-          <div class="audit-title">${udata.name || '—'} <span style="font-size:11px;color:var(--text3);font-weight:400">${udata.email || uid}</span></div>
-          <div class="audit-sub">${roleLabel} &middot; ${audSnap.size} audits &middot; Joined ${joined}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span class="badge ${udata.role === 'admin' ? 'badge-orange' : 'badge-blue'}">${audSnap.size} audits</span>
-          ${uid !== currentUser.uid ? `<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:#ef4444" onclick="adminDeleteUser('${uid}','${udata.name||udata.email}')">Remove</button>` : '<span style="font-size:11px;color:var(--text3)">You</span>'}
-        </div>`;
-      list.appendChild(div);
-    }
-    if (!list.children.length) list.innerHTML = '<div class="empty-state"><div class="empty-title">No users found</div></div>';
-  } catch(e) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-title">Error loading users</div></div>';
-    console.error(e);
-  }
-};
-
-// ── ADMIN: REMOVE STAFF (Firestore profile only — Auth account stays) ──
-window.adminDeleteUser = async (uid, name) => {
-  if (currentRole !== 'admin') return;
-  if (!confirm(`Remove ${name}? Their audits will remain but they won't be able to log in.`)) return;
-  try {
-    await deleteDoc(doc(db, 'users', uid));
-    loadAdminView();
-  } catch(e) { console.error(e); alert('Error removing user.'); }
-};
-
-// ── CLOUD STATUS ──────────────────────────────────────────────
-function setCloudStatus(msg, clearAfter) {
-  const el = document.getElementById('cloud-status');
-  if (el) el.textContent = msg;
-  if (clearAfter) setTimeout(() => { if (el) el.textContent = ''; }, clearAfter);
-}
-
-// ── EXPOSE ROLE CHECK FOR NON-MODULE JS ───────────────────────
-window.isAdminUser = () => currentRole === 'admin';
-window.getCurrentUser = () => ({ uid: currentUser?.uid, name: currentName, role: currentRole });
+<script>
+// Cloud save stubs — no-ops when login is disabled
+window.cloudSaveAudit  = async () => null;
+window.cloudSaveQuote  = async () => null;
+window.cloudDeleteAudit = async () => {};
+window.cloudDeleteQuote = async () => {};
+window.cloudSaveSettings = async () => {};
+window.isAdminUser = () => true;
+window.getCurrentUser = () => ({ uid: 'local', name: 'User', role: 'admin' });
+window._fbLoaded = true;
 </script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
 :root {
-  --bg: #0a0e17;
-  --surface: #111827;
-  --surface2: #1a2235;
-  --surface3: #212d42;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.13);
-  --accent: #f97316;
-  --accent2: #fb923c;
-  --green: #22c55e;
-  --blue: #3b82f6;
-  --red: #ef4444;
-  --yellow: #eab308;
-  --text: #f1f5f9;
-  --text2: #94a3b8;
-  --text3: #64748b;
+  --bg:        #050810;
+  --bg2:       #080c14;
+  --surface:   #0d1117;
+  --surface2:  #111520;
+  --surface3:  #161b2a;
+  --surface4:  #1c2235;
+  --border:    rgba(255,255,255,0.05);
+  --border2:   rgba(255,255,255,0.09);
+  --border3:   rgba(249,115,22,0.25);
+  --accent:    #f97316;
+  --accent2:   #fb923c;
+  --accent-glow: rgba(249,115,22,0.15);
+  --green:     #10d97a;
+  --blue:      #4f8ef7;
+  --red:       #f04545;
+  --yellow:    #f5c842;
+  --purple:    #8b5cf6;
+  --text:      #eef2ff;
+  --text2:     #8892a4;
+  --text3:     #4b5568;
   --font-display: 'Syne', sans-serif;
-  --font-body: 'Instrument Sans', sans-serif;
-  --radius: 12px;
+  --font-body:    'Inter', sans-serif;
+  --radius:    14px;
   --radius-sm: 8px;
+  --radius-xs: 5px;
+  --glow: 0 0 30px rgba(249,115,22,0.08);
+  --glow-sm: 0 0 12px rgba(249,115,22,0.12);
 }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; font-size: 14px; line-height: 1.5; }
 
-/* LAYOUT */
+/* ── SCROLLBAR ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface4); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+/* ── LAYOUT ────────────────────────────────────────────────── */
 .app { display: flex; height: 100vh; }
-.sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 0; position: relative; z-index: 10; }
-.main { flex: 1; overflow-y: auto; }
+.sidebar {
+  width: 230px; flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  position: relative; z-index: 10;
+}
+.sidebar::after {
+  content: '';
+  position: absolute; top: 0; right: -1px; width: 1px; height: 100%;
+  background: linear-gradient(to bottom, transparent, var(--accent-glow), transparent);
+}
+.main { flex: 1; overflow-y: auto; background: var(--bg); }
 
-/* SIDEBAR */
-.logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border); }
-.logo-mark { display: flex; align-items: center; gap: 10px; }
-.logo-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.logo-text { font-family: var(--font-display); font-weight: 800; font-size: 17px; color: var(--text); }
-.logo-sub { font-size: 10px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
-.nav { flex: 1; padding: 16px 12px; }
-.nav-section { font-size: 10px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; padding: 0 8px; margin: 18px 0 6px; }
-.nav-section:first-child { margin-top: 0; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13.5px; font-weight: 500; color: var(--text2); transition: all .15s; margin-bottom: 2px; border: none; background: none; width: 100%; text-align: left; }
+/* ── SIDEBAR LOGO ──────────────────────────────────────────── */
+.logo { padding: 24px 20px 22px; border-bottom: 1px solid var(--border); }
+.logo-mark { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), #ea580c);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  box-shadow: var(--glow-sm);
+}
+.logo-text { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -.02em; color: var(--text); }
+.logo-sub { font-size: 9.5px; color: var(--text3); letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+
+/* ── NAV ───────────────────────────────────────────────────── */
+.nav { flex: 1; padding: 16px 10px; overflow-y: auto; }
+.nav-section {
+  font-size: 9.5px; color: var(--text3);
+  letter-spacing: .12em; text-transform: uppercase; font-weight: 600;
+  padding: 0 10px; margin: 22px 0 6px;
+}
+.nav-section:first-child { margin-top: 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 13px; font-weight: 500;
+  color: var(--text2); transition: all .18s;
+  margin-bottom: 1px; border: none; background: none;
+  width: 100%; text-align: left; position: relative;
+}
 .nav-item:hover { background: var(--surface2); color: var(--text); }
-.nav-item.active { background: rgba(249,115,22,.12); color: var(--accent); }
-.nav-item .nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
-.nav-badge { margin-left: auto; background: var(--accent); color: white; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 6px; }
-.sidebar-footer { padding: 16px 12px; border-top: 1px solid var(--border); }
-.user-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface2); }
-.user-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #7c3aed); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0; }
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(249,115,22,0.12), transparent);
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+  padding-left: 10px;
+}
+.nav-item .nav-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; opacity: .8; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent); color: white;
+  font-size: 9.5px; font-weight: 700;
+  border-radius: 20px; padding: 1px 7px;
+  box-shadow: 0 0 8px rgba(249,115,22,.4);
+}
+
+/* ── SIDEBAR FOOTER ────────────────────────────────────────── */
+.sidebar-footer { padding: 14px 10px; border-top: 1px solid var(--border); }
+.user-chip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;
+}
 .user-info { flex: 1; min-width: 0; }
 .user-name { font-size: 12px; font-weight: 600; color: var(--text); }
-.user-role { font-size: 10px; color: var(--text3); }
+.user-role { font-size: 10px; color: var(--text3); margin-top: 1px; }
 
-/* PAGE WRAPPER */
-.page { display: none; padding: 32px 36px; max-width: 1100px; min-height: 100%; }
+/* ── PAGE WRAPPER ──────────────────────────────────────────── */
+.page { display: none; padding: 36px 40px; max-width: 1140px; min-height: 100%; }
 .page.active { display: block; }
 
-/* PAGE HEADER */
-.page-header { margin-bottom: 28px; }
-.page-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--text); }
-.page-desc { font-size: 14px; color: var(--text2); margin-top: 4px; }
+/* ── PAGE HEADER ───────────────────────────────────────────── */
+.page-header { margin-bottom: 32px; }
+.page-title {
+  font-family: var(--font-display);
+  font-size: 28px; font-weight: 800;
+  color: var(--text); letter-spacing: -.03em;
+  background: linear-gradient(135deg, #fff 40%, rgba(249,115,22,.8));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.page-desc { font-size: 13.5px; color: var(--text2); margin-top: 5px; }
 .page-actions { display: flex; gap: 10px; margin-top: 16px; }
 
-/* BUTTONS */
-.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; font-family: var(--font-body); cursor: pointer; border: none; transition: all .15s; }
-.btn-primary { background: var(--accent); color: white; }
-.btn-primary:hover { background: var(--accent2); }
-.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
-.btn-secondary:hover { background: var(--surface3); }
-.btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+/* ── BUTTONS ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; font-family: var(--font-body);
+  cursor: pointer; border: none; transition: all .18s;
+  letter-spacing: .01em;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #ea580c);
+  color: white;
+  box-shadow: 0 4px 16px rgba(249,115,22,.25);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(249,115,22,.35); }
+.btn-secondary {
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border2);
+}
+.btn-secondary:hover { background: var(--surface3); border-color: var(--border3); }
+.btn-ghost {
+  background: transparent; color: var(--text2);
+  border: 1px solid var(--border);
+}
 .btn-ghost:hover { background: var(--surface2); color: var(--text); }
-.btn-green { background: var(--green); color: white; }
-.btn-green:hover { background: #16a34a; }
-.btn-danger { background: var(--red); color: white; }
-.btn-lg { padding: 12px 22px; font-size: 14px; border-radius: var(--radius); }
+.btn-green {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white; box-shadow: 0 4px 14px rgba(16,217,122,.2);
+}
+.btn-green:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16,217,122,.3); }
+.btn-danger {
+  background: linear-gradient(135deg, var(--red), #c53030);
+  color: white;
+}
+.btn-lg { padding: 12px 24px; font-size: 14px; border-radius: var(--radius); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
 
-/* CARDS */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
-.card-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-.card-title .badge { font-family: var(--font-body); font-size: 10px; font-weight: 600; background: var(--surface3); color: var(--text2); padding: 2px 8px; border-radius: 20px; letter-spacing: .04em; text-transform: uppercase; }
+/* ── CARDS ─────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  transition: border-color .2s;
+}
+.card:hover { border-color: var(--border2); }
+.card-title {
+  font-family: var(--font-display);
+  font-size: 13.5px; font-weight: 700;
+  color: var(--text); margin-bottom: 18px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title .badge {
+  font-family: var(--font-body); font-size: 10px; font-weight: 600;
+  background: var(--surface3); color: var(--text2);
+  padding: 2px 8px; border-radius: 20px;
+  letter-spacing: .04em; text-transform: uppercase;
+}
 
-/* STAT CARDS */
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
-.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; position: relative; overflow: hidden; }
-.stat-card::after { content: ''; position: absolute; top: 0; right: 0; width: 3px; height: 100%; background: var(--accent-color, var(--accent)); border-radius: 0 var(--radius) var(--radius) 0; }
-.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 600; }
-.stat-value { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--text); margin: 6px 0 4px; }
-.stat-sub { font-size: 12px; color: var(--text3); }
+/* ── STAT CARDS ────────────────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  position: relative; overflow: hidden;
+  transition: all .2s;
+}
+.stat-card:hover { border-color: var(--border3); transform: translateY(-2px); box-shadow: var(--glow); }
+.stat-card::before {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-color, var(--accent)), transparent);
+  opacity: .4;
+}
+.stat-card::after {
+  content: ''; position: absolute; top: -30px; right: -30px;
+  width: 80px; height: 80px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-color, var(--accent)), transparent 70%);
+  opacity: .04;
+}
+.stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); font-weight: 600; }
+.stat-value { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--text); margin: 8px 0 4px; letter-spacing: -.02em; }
+.stat-sub { font-size: 11.5px; color: var(--text3); }
 
-/* GRID LAYOUTS */
+/* ── GRID LAYOUTS ──────────────────────────────────────────── */
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 .col-6040 { display: grid; grid-template-columns: 6fr 4fr; gap: 20px; }
 
-/* FORM ELEMENTS */
+/* ── FORM ELEMENTS ─────────────────────────────────────────── */
 .form-group { margin-bottom: 16px; }
-.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; letter-spacing: .03em; text-transform: uppercase; }
-.form-input { width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-body); font-size: 14px; outline: none; transition: border .15s; }
-.form-input:focus { border-color: var(--accent); }
+.form-label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: var(--text3); margin-bottom: 6px;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.form-input {
+  width: 100%; padding: 10px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text); font-family: var(--font-body);
+  font-size: 13.5px; outline: none;
+  transition: all .18s;
+}
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(249,115,22,0.08); }
+.form-input::placeholder { color: var(--text3); }
 .form-input option { background: var(--surface); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 
-/* TABLE */
-.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.data-table th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); }
+/* ── TABLE ─────────────────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left; padding: 10px 14px;
+  font-size: 10px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .08em;
+  border-bottom: 1px solid var(--border2);
+}
 .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: rgba(255,255,255,.02); }
-.data-table td.mono { font-family: monospace; font-size: 13px; color: var(--text); }
+.data-table tr:hover td { background: rgba(255,255,255,.015); }
+.data-table td.mono { font-family: monospace; font-size: 12.5px; color: var(--text); }
 .data-table td.bold { color: var(--text); font-weight: 600; }
 
-/* APPLIANCE TABLE */
+/* ── APPLIANCE TABLE ───────────────────────────────────────── */
 .appl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.appl-table th { text-align: left; padding: 8px 10px; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border2); }
-.appl-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.appl-table th {
+  text-align: left; padding: 9px 10px;
+  font-size: 9.5px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .08em;
+  border-bottom: 1px solid var(--border2);
+  background: var(--surface2);
+}
+.appl-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .appl-table tr:last-child td { border-bottom: none; }
-.appl-table tr:hover td { background: rgba(255,255,255,.015); }
+.appl-table tr:hover td { background: rgba(249,115,22,.02); }
 .appl-name { font-weight: 600; color: var(--text); font-size: 13px; }
-.appl-watts-badge { display: inline-block; font-size: 10px; color: var(--text3); background: var(--surface3); padding: 1px 6px; border-radius: 4px; margin-left: 5px; }
-.appl-qty-ctrl { display: flex; align-items: center; gap: 6px; }
-.qty-btn { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border2); background: var(--surface3); color: var(--text); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all .1s; flex-shrink: 0; }
-.qty-btn:hover { background: var(--accent); border-color: var(--accent); }
-.qty-val { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); min-width: 18px; text-align: center; }
-.hours-input { width: 54px; padding: 5px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: var(--font-body); font-size: 13px; text-align: center; outline: none; }
+.appl-watts-badge {
+  display: inline-block; font-size: 9.5px; color: var(--text3);
+  background: var(--surface3); padding: 1px 6px;
+  border-radius: 4px; margin-left: 5px; font-family: monospace;
+}
+.appl-qty-ctrl { display: flex; align-items: center; gap: 7px; }
+.qty-btn {
+  width: 24px; height: 24px; border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surface3); color: var(--text);
+  cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; flex-shrink: 0;
+}
+.qty-btn:hover { background: var(--accent); border-color: var(--accent); box-shadow: var(--glow-sm); }
+.qty-val { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--text); min-width: 20px; text-align: center; }
+.hours-input {
+  width: 56px; padding: 5px 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text);
+  font-family: var(--font-body); font-size: 13px;
+  text-align: center; outline: none;
+  transition: border .15s;
+}
 .hours-input:focus { border-color: var(--accent); }
-.appl-device-load { font-size: 12px; color: var(--text2); font-family: monospace; }
-.appl-energy { font-size: 12px; color: var(--accent); font-weight: 600; font-family: monospace; }
-.appl-totals-row td { padding: 10px; background: var(--surface2); font-weight: 700; border-top: 2px solid var(--border2); }
+.appl-device-load { font-size: 11.5px; color: var(--text2); font-family: monospace; }
+.appl-energy { font-size: 11.5px; color: var(--accent); font-weight: 600; font-family: monospace; }
+.appl-totals-row td {
+  padding: 10px; font-weight: 700;
+  border-top: 1px solid var(--border2);
+  background: linear-gradient(90deg, var(--surface2), var(--surface3));
+}
 
-/* BREAKDOWN */
-.breakdown-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+/* ── BREAKDOWN ─────────────────────────────────────────────── */
+.breakdown-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 11px 0; border-bottom: 1px solid var(--border);
+}
 .breakdown-item:last-child { border-bottom: none; }
-.breakdown-label { font-size: 13.5px; color: var(--text2); }
-.breakdown-label span { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
-.breakdown-val { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--text); }
-.breakdown-total { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(249,115,22,.08); border: 1px solid rgba(249,115,22,.2); border-radius: var(--radius-sm); margin-top: 14px; }
-.breakdown-total-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.breakdown-label { font-size: 13px; color: var(--text2); }
+.breakdown-label span { display: block; font-size: 10.5px; color: var(--text3); margin-top: 2px; }
+.breakdown-val { font-family: var(--font-display); font-size: 14.5px; font-weight: 700; color: var(--text); }
+.breakdown-total {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(249,115,22,.08), rgba(249,115,22,.04));
+  border: 1px solid rgba(249,115,22,.2);
+  border-radius: var(--radius-sm); margin-top: 14px;
+  box-shadow: inset 0 1px 0 rgba(249,115,22,.1);
+}
+.breakdown-total-label { font-size: 13.5px; font-weight: 600; color: var(--text); }
 .breakdown-total-val { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--accent); }
 
-/* AUDIT LIST */
-.audit-item { display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; cursor: pointer; transition: all .15s; }
-.audit-item:hover { border-color: var(--border2); background: var(--surface3); }
-.audit-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(249,115,22,.12); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+/* ── AUDIT LIST ────────────────────────────────────────────── */
+.audit-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 15px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px; cursor: pointer;
+  transition: all .18s;
+}
+.audit-item:hover {
+  border-color: var(--border3);
+  background: var(--surface3);
+  transform: translateX(2px);
+  box-shadow: -3px 0 0 var(--accent);
+}
+.audit-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(249,115,22,.15), rgba(249,115,22,.05));
+  border: 1px solid rgba(249,115,22,.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
 .audit-meta { flex: 1; }
-.audit-title { font-size: 14px; font-weight: 600; color: var(--text); }
-.audit-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.audit-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.audit-sub { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
 .audit-badges { display: flex; gap: 6px; }
-.badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.badge-orange { background: rgba(249,115,22,.15); color: var(--accent); }
-.badge-green { background: rgba(34,197,94,.12); color: var(--green); }
-.badge-blue { background: rgba(59,130,246,.12); color: var(--blue); }
-.badge-gray { background: var(--surface3); color: var(--text3); }
 
-/* PRICING TABLE */
+/* ── BADGES ────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 10.5px; font-weight: 600;
+}
+.badge-orange { background: rgba(249,115,22,.12); color: var(--accent); border: 1px solid rgba(249,115,22,.15); }
+.badge-green  { background: rgba(16,217,122,.1);  color: var(--green);  border: 1px solid rgba(16,217,122,.15); }
+.badge-blue   { background: rgba(79,142,247,.1);  color: var(--blue);   border: 1px solid rgba(79,142,247,.15); }
+.badge-gray   { background: var(--surface3); color: var(--text3); }
+
+/* ── PRICING TABLE ─────────────────────────────────────────── */
 .price-category { margin-bottom: 24px; }
-.price-cat-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 8px; }
-.price-cat-icon { font-size: 16px; }
+.price-cat-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm); margin-bottom: 8px;
+}
+.price-cat-icon { font-size: 15px; }
 .price-cat-title { font-size: 13px; font-weight: 700; color: var(--text); }
-.price-row { display: grid; grid-template-columns: 3fr 1fr 1.5fr 1.5fr 80px; gap: 0; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
-.price-row.header { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 2px solid var(--border2); padding-bottom: 8px; }
+.price-row {
+  display: grid; grid-template-columns: 3fr 1fr 1.5fr 1.5fr 80px;
+  gap: 0; align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.price-row.header {
+  font-size: 10px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .08em;
+  border-bottom: 1px solid var(--border2); padding-bottom: 8px;
+}
 .price-row:last-child { border-bottom: none; }
-.price-input-sm { width: 100%; padding: 6px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font-body); font-size: 13px; outline: none; }
+.price-input-sm {
+  width: 100%; padding: 6px 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+  font-family: var(--font-body); font-size: 13px; outline: none;
+  transition: border .15s;
+}
 .price-input-sm:focus { border-color: var(--accent); }
 
-/* QUOTE */
+/* ── QUOTE ─────────────────────────────────────────────────── */
 .quote-preview { background: white; color: #111; border-radius: var(--radius); padding: 40px; max-width: 700px; }
 .quote-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #f97316; }
 .quote-logo { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: #f97316; }
@@ -510,105 +438,63 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .quote-total-final { display: flex; justify-content: space-between; font-size: 18px; font-weight: 800; color: #f97316; padding-top: 10px; margin-top: 8px; border-top: 1px solid #fed7aa; }
 .quote-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
 
-/* TABS */
+/* ── TABS ──────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
-.tab { padding: 10px 18px; font-size: 13px; font-weight: 600; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+.tab {
+  padding: 10px 18px; font-size: 13px; font-weight: 500;
+  color: var(--text3); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all .18s;
+}
 .tab:hover { color: var(--text2); }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 
-/* PROGRESS */
-.progress-bar { height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
-.progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s; }
+/* ── PROGRESS ──────────────────────────────────────────────── */
+.progress-bar { height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 3px; transition: width .4s; }
 
-/* MISC */
+/* ── MISC ──────────────────────────────────────────────────── */
 .divider { height: 1px; background: var(--border); margin: 20px 0; }
 .empty-state { text-align: center; padding: 60px 20px; }
-.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
-.empty-title { font-size: 16px; font-weight: 600; color: var(--text2); }
+.empty-icon { font-size: 38px; margin-bottom: 12px; opacity: .3; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--text2); }
 .empty-sub { font-size: 13px; color: var(--text3); margin-top: 4px; }
 .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
-.alert-info { background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.2); color: #93c5fd; }
-.alert-success { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.2); color: #86efac; }
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100; align-items: center; justify-content: center; }
+.alert-info { background: rgba(79,142,247,.08); border: 1px solid rgba(79,142,247,.15); color: #93c5fd; }
+.alert-success { background: rgba(16,217,122,.08); border: 1px solid rgba(16,217,122,.15); color: #86efac; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
 .modal-overlay.open { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 28px; width: 480px; max-width: 95vw; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 30px; width: 480px; max-width: 95vw;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+}
 .modal-title { font-family: var(--font-display); font-size: 18px; font-weight: 800; margin-bottom: 20px; }
 
-/* CHART BAR */
+/* ── CHART BAR ─────────────────────────────────────────────── */
 .mini-bar { display: flex; flex-direction: column; gap: 8px; }
 .mini-bar-item { display: flex; align-items: center; gap: 10px; }
 .mini-bar-label { font-size: 12px; color: var(--text2); width: 100px; flex-shrink: 0; }
-.mini-bar-track { flex: 1; height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
-.mini-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .5s; }
-.mini-bar-val { font-size: 12px; color: var(--text3); width: 60px; text-align: right; flex-shrink: 0; }
+.mini-bar-track { flex: 1; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
+.mini-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width .5s; }
+.mini-bar-val { font-size: 11.5px; color: var(--text3); width: 60px; text-align: right; flex-shrink: 0; }
 
+/* ── RESPONSIVE ────────────────────────────────────────────── */
 @media(max-width:900px){
-  .sidebar{width:60px;overflow:hidden;}
-  .logo-text,.logo-sub,.nav-section,.nav-item span:not(.nav-icon),.nav-badge,.user-info{display:none;}
-  .nav-item{justify-content:center;padding:12px;}
-  .page{padding:20px 16px;}
-  .stats-grid{grid-template-columns:1fr 1fr;}
-  .two-col,.col-6040{grid-template-columns:1fr;}
+  .sidebar { width: 60px; overflow: hidden; }
+  .logo-text,.logo-sub,.nav-section,.nav-item span:not(.nav-icon),.nav-badge,.user-info { display: none; }
+  .nav-item { justify-content: center; padding: 12px; }
+  .page { padding: 20px 16px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .two-col,.col-6040 { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
-<div id="auth-screen" style="display:flex;position:fixed;inset:0;background:#0a0e17;z-index:999;align-items:center;justify-content:center;">
-  <div style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:40px;width:400px;max-width:95vw">
-    <div style="text-align:center;margin-bottom:28px">
-      <div style="width:52px;height:52px;background:#f97316;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px">⚡</div>
-      <div style="font-family:Syne,sans-serif;font-size:24px;font-weight:800;color:#f1f5f9">SolarIQ</div>
-      <div style="font-size:13px;color:#64748b;margin-top:4px">Energy Audit System</div>
-    </div>
-
-    <!-- Role toggle -->
-    <div style="display:flex;background:#0a0e17;border-radius:10px;padding:4px;margin-bottom:20px;gap:4px">
-      <button id="role-btn-staff" onclick="selectLoginRole('staff')"
-        style="flex:1;padding:8px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:#1a2235;color:#94a3b8;transition:all .15s">
-        👤 Staff
-      </button>
-      <button id="role-btn-admin" onclick="selectLoginRole('admin')"
-        style="flex:1;padding:8px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:transparent;color:#64748b;transition:all .15s">
-        👑 Admin
-      </button>
-    </div>
-
-    <div id="auth-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px"></div>
-    <div style="margin-bottom:12px">
-      <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Email</label>
-      <input type="email" id="auth-email" class="form-input" placeholder="you@company.com" onkeydown="if(event.key==='Enter')loginWithEmail()">
-    </div>
-    <div style="margin-bottom:20px">
-      <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Password</label>
-      <input type="password" id="auth-password" class="form-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')loginWithEmail()">
-    </div>
-    <button id="btn-email-login" onclick="loginWithEmail()" class="btn btn-primary" style="width:100%;justify-content:center;font-size:15px;padding:12px">Sign In</button>
-    <div style="margin-top:16px;text-align:center;font-size:12px;color:#475569">Contact your administrator to create or reset your account.</div>
-  </div>
-</div>
-
-<script>
-  let _selectedLoginRole = 'staff';
-  window._selectedLoginRole = 'staff';
-  function selectLoginRole(role) {
-    _selectedLoginRole = role;
-    window._selectedLoginRole = role;
-    const staffBtn = document.getElementById('role-btn-staff');
-    const adminBtn = document.getElementById('role-btn-admin');
-    if (role === 'staff') {
-      staffBtn.style.background = '#1a2235'; staffBtn.style.color = '#f1f5f9';
-      adminBtn.style.background = 'transparent'; adminBtn.style.color = '#64748b';
-    } else {
-      adminBtn.style.background = '#f97316'; adminBtn.style.color = '#fff';
-      staffBtn.style.background = 'transparent'; staffBtn.style.color = '#64748b';
-    }
-  }
-  selectLoginRole('staff');
-</script>
-
-<div class="app" id="app" style="display:none">
+<div class="app" id="app" style="display:flex">
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
@@ -628,18 +514,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div class="nav-section">Data</div>
     <button class="nav-item" onclick="showPage('audits')"><span class="nav-icon">📋</span><span>Saved Audits</span><span class="nav-badge" id="audit-count">0</span></button>
     <button class="nav-item" onclick="showPage('quotes')"><span class="nav-icon">📄</span><span>Quotes</span><span class="nav-badge" id="quote-count">0</span></button>
-    <div class="nav-section admin-only" style="display:none">Admin</div>
-    <button class="nav-item admin-only" style="display:none" onclick="showPage('pricing')"><span class="nav-icon">₦</span><span>Price Lists</span></button>
-    <button class="nav-item admin-only" style="display:none" onclick="showPage('settings')"><span class="nav-icon">⚙</span><span>Settings</span></button>
-    <button class="nav-item admin-only" style="display:none" onclick="showPage('admin');loadAdminView()"><span class="nav-icon">👑</span><span>Team &amp; Users</span></button>
+    <div class="nav-section">Admin</div>
+    <button class="nav-item" onclick="showPage('pricing')"><span class="nav-icon">₦</span><span>Price Lists</span></button>
+    <button class="nav-item" onclick="showPage('settings')"><span class="nav-icon">⚙</span><span>Settings</span></button>
   </nav>
   <div class="sidebar-footer">
-    <div style="font-size:11px;color:var(--text3);text-align:center;padding:4px 0;min-height:18px" id="cloud-status"></div>
-    <div class="user-chip" style="cursor:pointer" onclick="signOutUser()">
-      <div class="user-avatar" id="user-avatar-initial">U</div>
+    <div class="user-chip">
+      <div class="user-avatar">S</div>
       <div class="user-info">
-        <div class="user-name" id="user-display-name">User</div>
-        <div class="user-role" id="user-display-email">Staff</div>
+        <div class="user-name">SolarIQ</div>
+        <div class="user-role">Energy Audit</div>
       </div>
     </div>
   </div>
@@ -1162,7 +1046,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div id="modal-audit-body"></div>
     <div style="display:flex;gap:10px;margin-top:20px">
       <button class="btn btn-primary" onclick="generateQuoteFromModal()">📄 Generate Quote</button>
-      <button class="btn btn-danger admin-only" style="display:none" onclick="deleteAuditFromModal()">🗑 Delete</button>
+      <button class="btn btn-danger" onclick="deleteAuditFromModal()">🗑 Delete</button>
     </div>
   </div>
 </div>
@@ -1366,12 +1250,12 @@ function renderApplianceGrid() {
       <td><span class="appl-name">${a.icon} ${a.name}</span><span class="appl-watts-badge">${a.watts}W</span></td>
       <td>
         <div class="appl-qty-ctrl">
-          <button class="qty-btn" onclick="state.appliances['${a.id}'].qty = Math.max(0, state.appliances['${a.id}'].qty - 1); document.getElementById('qty-${a.id}').textContent = state.appliances['${a.id}'].qty; calculateSystem();">−</button>
+          <button class="qty-btn" onclick="adjustQty('${a.id}',-1)">−</button>
           <div class="qty-val" id="qty-${a.id}">${d.qty}</div>
-          <button class="qty-btn" onclick="state.appliances['${a.id}'].qty += 1; document.getElementById('qty-${a.id}').textContent = state.appliances['${a.id}'].qty; calculateSystem();">+</button>
+          <button class="qty-btn" onclick="adjustQty('${a.id}',1)">+</button>
         </div>
       </td>
-      <td><input class="hours-input" type="number" id="hrs-${a.id}" value="${d.hours}" min="0" max="24" onchange="state.appliances['${a.id}'].hours = Math.max(0, Math.min(24, this.value)); calculateSystem();"></td>
+      <td><input class="hours-input" type="number" id="hrs-${a.id}" value="${d.hours}" min="0" max="24" onchange="updateHours('${a.id}', this.value)"></td>
       <td><span class="appl-device-load" id="dload-${a.id}">${deviceLoad} W</span></td>
       <td><span class="appl-energy" id="denergy-${a.id}">${deviceEnergy} Wh</span></td>
     </tr>`;
@@ -1448,6 +1332,9 @@ function updateRowCalc(id) {
 // Returns { totalLoad, totalEnergy, deviceRows }
 // All inputs coerced via Number(...) || 0 to survive bad state
 // ============================================================
+// ============================================================
+// CALCULATE TOTALS — sums appliance loads from state
+// ============================================================
 function calculateTotals() {
   let totalLoad = 0;
   let totalEnergy = 0;
@@ -1469,130 +1356,98 @@ function calculateTotals() {
 }
 
 // ============================================================
-// CALCULATION ENGINE — EXACT EXCEL LOGIC
+// CALCULATION ENGINE
 // ============================================================
 function calcSystem(appliances, opts) {
-  const cfg = state.config;
-  const backupDays = cfg.daysOfAutonomy || 1;
+  const cfg        = state.config;
   const batteryType = opts.batteryType || 'lithium';
-  const markup = (opts.markup || 0) / 100;
-  const prices = state.prices.user;
+  const markup      = (opts.markup || 0) / 100;
+  const prices      = state.prices.user;
 
-  // Per-device: Device Load (W) = Watts × Qty
-  // Per-device: Device Energy (Wh) = Device Load × Hours
-  // Delegated to calculateTotals() which uses Number(...) || 0 guards
+  // ── Step 1: Load & Energy ──────────────────────────────────
   const totals = calculateTotals();
-  if (!totals) {
-    console.error('calculateTotals returned no result');
-    return null;
-  }
-  const totalLoad     = totals.totalLoad;       // Sum of Device Loads (W)
-  const totalEnergyWh = totals.totalEnergy;     // Sum of Device Energies (Wh)
+  if (!totals) return null;
+  const totalLoad     = totals.totalLoad;
   const deviceRows    = totals.deviceRows;
 
-  const totalEnergyKWh = totalEnergyWh / 1000;
+  // Daily energy — use per-device hours (from state) if available,
+  // fall back to usageHours param for simpler audits
+  const usageHours    = opts.usageHours || parseFloat(document.getElementById('usage-hours')?.value) || 8;
+  const totalEnergyWh = totals.totalEnergy > 0
+    ? totals.totalEnergy                       // per-device hours set
+    : totalLoad * usageHours;                  // flat hours fallback
+  const dailyKWh      = totalEnergyWh / 1000;
+  const totalEnergyKWh = dailyKWh;
 
-  // 20% system loss → Adjusted Energy Demand
+  // ── Step 2: System losses (+20%) ───────────────────────────
   const adjustedEnergyWh  = totalEnergyWh * 1.20;
   const adjustedEnergyKWh = adjustedEnergyWh / 1000;
 
-  // Battery sizing from Adjusted Energy Demand
-  const dod = batteryType === 'lithium' ? cfg.dodLithium : cfg.dodLead;
-  const batteryKWh = Math.ceil(adjustedEnergyKWh * (cfg.daysOfAutonomy||1) * dod * 10) / 10;
-  // Inverter Size (W) = Total Load × Inverter Efficiency
-  const inverterSizeW = totalLoad * (cfg.inverterEfficiency || 1.25);
+  // ── Step 3: Battery chain ──────────────────────────────────
+  const dod        = batteryType === 'lithium' ? cfg.dodLithium : cfg.dodLead;
+  const backupDays = opts.backupDays || cfg.daysOfAutonomy || 1;
+  const batteryKWh = Math.ceil(adjustedEnergyKWh * backupDays * dod * 10) / 10;
 
-  // Inverter Size (kVA) = Inverter Size (W) ÷ Power Factor (0.8) ÷ 1000
-  const inverterKVA = Math.round((inverterSizeW / 0.8) / 1000 * 10) / 10;
+  const battCapacityAh    = (adjustedEnergyWh / ((cfg.battVoltage||48) * (cfg.battDod||0.8) * (cfg.battEfficiency||0.95))) * backupDays;
+  const battCapacityWh    = battCapacityAh * (cfg.battVoltage||48);
+  const totalBattEnergyWh = battCapacityAh * (cfg.battVoltage||48) * backupDays;
+  const battRuntimeHrs    = backupDays * 24;
 
-  // Battery Capacity (Ah) = (Adjusted Energy Wh / (Voltage × DoD × Efficiency)) × Days of Autonomy
-  const battCapacityAh = (adjustedEnergyWh / ((cfg.battVoltage||48) * (cfg.battDod||0.8) * (cfg.battEfficiency||0.95))) * (cfg.daysOfAutonomy||1);
-
-  // Battery Runtime (hrs) = Days of Autonomy × 24
-  const battRuntimeHrs = (cfg.daysOfAutonomy||1) * 24;
-
-  // Total Batteries — round DOWN to nearest whole number
-  const rawBatteries = Math.floor(battCapacityAh / (cfg.individualBattAh || 200));
+  const rawBatteries  = Math.floor(battCapacityAh / (cfg.individualBattAh || 200));
   const bVolt = cfg.battVoltage || 48;
   const iVolt = cfg.inverterVoltage || 48;
   let totalBatteries = 0;
   if (batteryType === 'lead') {
-    if (bVolt === 12 && iVolt === 12) {
-      totalBatteries = rawBatteries;
-    } else if (bVolt === 12 && iVolt === 24) {
-      const n = rawBatteries / 2;
-      totalBatteries = Math.ceil(n % 1 === 0 ? n : Math.ceil(n / 2) * 2); // nearest even
-    } else if (bVolt === 12 && iVolt === 48) {
-      totalBatteries = Math.ceil(rawBatteries / 4) * 4; // nearest multiple of 4
-    } else {
-      totalBatteries = 0; // N/A combo
-    }
-  } else { // lithium
-    if (bVolt === iVolt) {
-      totalBatteries = rawBatteries;
-    } else {
-      totalBatteries = 0; // N/A combo
-    }
-  }
-
-  // Battery Capacity (Wh) = Battery Capacity (Ah) × Battery Voltage (V)
-  const battCapacityWh = battCapacityAh * cfg.battVoltage;
-
-  // Total Battery Energy (Wh) = Battery Capacity (Ah) × Voltage × Days of Autonomy
-  const totalBattEnergyWh = battCapacityAh * (cfg.battVoltage||48) * (cfg.daysOfAutonomy||1);
-
-  // Solar Power Needed (W) = Total Battery Energy (Wh) ÷ Peak Sun Hours
-  const solarPowerW = totalBattEnergyWh / cfg.sunHours;
-
-  // Adjusted Panel Capacity (W) = (Solar Power × Energy Used%) + Solar Power
-  const adjustedPanelW = (solarPowerW * (cfg.energyUsedPct || 0.90)) + solarPowerW;
-
-  // Number of Panels = ceil(Adjusted Panel Capacity / (Individual Panel W × 0.7))
-  const numPanels = Math.ceil(adjustedPanelW / ((cfg.individualPanelW || 400) * 0.7));
-
-  // Total installed panel wattage (what's actually being sold)
-  const panelW = numPanels * (cfg.individualPanelW || 400);
-
-  const batteryPrice = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
-  const cPanels = panelW * prices.panelPerWatt;
-  // Battery cost based on actual installed battery energy (totalBatteries × Ah × V)
-  const installedBattKWh = (totalBatteries * (cfg.individualBattAh||200) * (cfg.battVoltage||48)) / 1000;
-  const cBattery = installedBattKWh * batteryPrice;
-
-  // Inverter sizing — auto round-up calc'd kVA to nearest standard size, unless admin overrode
-  const stdSizes = (cfg.inverterStandardSizes && cfg.inverterStandardSizes.length)
-    ? cfg.inverterStandardSizes
-    : [1, 1.5, 2, 3, 5, 7.5, 10, 15, 20];
-  let selectedInverterKVA;
-  if (cfg.selectedInverterKVA && cfg.selectedInverterKVA > 0) {
-    // manual override
-    selectedInverterKVA = cfg.selectedInverterKVA;
+    if (bVolt === 12 && iVolt === 12) totalBatteries = rawBatteries;
+    else if (bVolt === 12 && iVolt === 24) totalBatteries = Math.ceil(rawBatteries / 2) * 2;
+    else if (bVolt === 12 && iVolt === 48) totalBatteries = Math.ceil(rawBatteries / 4) * 4;
   } else {
-    // round up to next standard size; if calc'd > largest, return largest (engineer should split)
-    const next = stdSizes.find(s => s >= inverterKVA);
-    selectedInverterKVA = next != null ? next : stdSizes[stdSizes.length - 1];
+    if (bVolt === iVolt) totalBatteries = rawBatteries;
   }
-  // Inverter cost based on the SELECTED size (what the customer actually buys)
-  const cInverter = selectedInverterKVA * prices.inverterPerKVA;
 
-  // Balance of System — flat or scaled
-  const cCabling     = cfg.cablingMode === 'scaled'
-    ? selectedInverterKVA * (cfg.cablingPerKVA || 0)
-    : prices.cabling;
-  const cMounting    = cfg.mountingMode === 'scaled'
-    ? numPanels * (cfg.mountingPerPanel || 0)
-    : prices.mounting;
-  const cAccessories = cfg.accessoriesMode === 'scaled'
-    ? selectedInverterKVA * (cfg.accessoriesPerKVA || 0)
-    : prices.accessories;
+  // ── Step 4: Solar panels ───────────────────────────────────
+  const solarPowerW    = totalBattEnergyWh / (cfg.sunHours || 4.5);
+  const adjustedPanelW = solarPowerW * (1 + (cfg.energyUsedPct || 0.90));
+  const numPanels      = Math.ceil(adjustedPanelW / ((cfg.individualPanelW || 400) * 0.7));
+  const panelW         = numPanels * (cfg.individualPanelW || 400);
 
-  const equipTotal = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
-  const cInstall = equipTotal * cfg.installPct;
-  const subtotal = equipTotal + cInstall;
-  const markupAmt = subtotal * markup;
-  const total = subtotal + markupAmt;
+  // ── Step 5: Inverter ───────────────────────────────────────
+  const inverterSizeW = totalLoad * (cfg.inverterEfficiency || 1.25);
+  const inverterKVA   = Math.ceil((inverterSizeW / 0.8) / 1000 * 10) / 10;
 
-  const result = { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, installedBattKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, totalBattEnergyWh, solarPowerW, adjustedPanelW, numPanels, inverterSizeW, inverterKVA, selectedInverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+  const stdSizes = (cfg.inverterStandardSizes?.length)
+    ? cfg.inverterStandardSizes : [1, 1.5, 2, 3, 5, 7.5, 10, 15, 20];
+  const selectedInverterKVA = (cfg.selectedInverterKVA > 0)
+    ? cfg.selectedInverterKVA
+    : (stdSizes.find(s => s >= inverterKVA) ?? stdSizes[stdSizes.length - 1]);
+
+  // ── Step 6: Cost ───────────────────────────────────────────
+  const batteryPrice  = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
+  const installedBattKWh = (totalBatteries * (cfg.individualBattAh||200) * (cfg.battVoltage||48)) / 1000;
+  const cPanels      = panelW * prices.panelPerWatt;
+  const cBattery     = installedBattKWh * batteryPrice;
+  const cInverter    = selectedInverterKVA * prices.inverterPerKVA;
+  const cCabling     = cfg.cablingMode === 'scaled' ? selectedInverterKVA * (cfg.cablingPerKVA||0) : prices.cabling;
+  const cMounting    = cfg.mountingMode === 'scaled' ? numPanels * (cfg.mountingPerPanel||0)       : prices.mounting;
+  const cAccessories = cfg.accessoriesMode === 'scaled' ? selectedInverterKVA * (cfg.accessoriesPerKVA||0) : prices.accessories;
+  const equipTotal   = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
+  const cInstall     = equipTotal * (cfg.installPct || 0.12);
+  const subtotal     = equipTotal + cInstall;
+  const markupAmt    = subtotal * markup;
+  const total        = subtotal + markupAmt;
+
+  // ── Return all results ─────────────────────────────────────
+  return {
+    totalLoad, totalEnergyWh, totalEnergyKWh, dailyKWh,
+    adjustedEnergyWh, adjustedEnergyKWh,
+    panelW, batteryKWh, installedBattKWh,
+    battCapacityAh, battCapacityWh, battRuntimeHrs,
+    totalBatteries, totalBattEnergyWh, solarPowerW, adjustedPanelW, numPanels,
+    inverterSizeW, inverterKVA, selectedInverterKVA,
+    deviceRows,
+    cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories,
+    equipTotal, cInstall, markupAmt, total
+  };
 }
 
 function recalculate() {
@@ -1627,7 +1482,7 @@ function recalculate() {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
   set('calc-load',            fmt(r.totalLoad) + ' W');
-  set('calc-daily',           r.totalEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.totalEnergyWh) + ' Wh)');
+  set('calc-daily',           r.dailyKWh.toFixed(2) + ' kWh (' + fmt(r.totalEnergyWh) + ' Wh)');
   set('calc-adjusted',        r.adjustedEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.adjustedEnergyWh) + ' Wh)');
   set('calc-batt-ah',         Math.ceil(r.battCapacityAh) + ' Ah @ ' + (state.config.battVoltage||48) + 'V');
   set('calc-batt-wh',         fmt(Math.round(r.battCapacityWh)) + ' Wh (' + (r.battCapacityWh/1000).toFixed(2) + ' kWh)');
@@ -2374,10 +2229,9 @@ document.querySelectorAll('#battery-type,#markup').forEach(el => {
 });
 
 // ============================================================
-// BOOT — init() is called by window.appReady after Firebase loads
-// Fallback: run init directly if Firebase module hasn't fired yet
+// BOOT — runs immediately, no Firebase dependency
 // ============================================================
-setTimeout(() => { if (!window._fbLoaded) init(); }, 2000);
+setTimeout(() => init(), 100);
 
 // ============================================================
 // DOM READY HOOK — Ensure calculations run on page load

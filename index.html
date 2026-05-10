@@ -2355,12 +2355,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderAppliances();
 });
 
-// Also hook recalculate to call calculateSystem
-const originalRecalculate = recalculate;
-window.recalculate = function() {
-  calculateSystem();
-  originalRecalculate.call(this);
-};
 </script>
 </body>
 </html>

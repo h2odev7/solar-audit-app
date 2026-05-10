@@ -9,14 +9,14 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider,
-  signInWithPopup, signInWithRedirect, getRedirectResult,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, onAuthStateChanged
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, getDoc,
-  collection, addDoc, getDocs, deleteDoc, query, orderBy
+  getFirestore, doc, setDoc, getDoc, updateDoc,
+  collection, addDoc, getDocs, deleteDoc, query, orderBy, where
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -30,72 +30,63 @@ const firebaseConfig = {
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-auth.useDeviceLanguage();
 const db   = getFirestore(app);
-const provider = new GoogleAuthProvider();
-provider.setCustomParameters({ prompt: "select_account" });
 
-// ── ADMIN EMAILS ──
-const ADMIN_EMAILS = ['admin@solariq.ng'];
+// ── SESSION STATE ─────────────────────────────────────────────
 let currentUser = null;
-let isAdmin = false;
+let currentRole = null;   // 'admin' | 'staff'
+let currentName = '';
 
-// ── HANDLE REDIRECT RESULT (GitHub Pages fallback) ──
-getRedirectResult(auth)
-  .then((result) => {
-    if (result?.user) {
-      console.log("Redirect login success:", result.user);
-    }
-  })
-  .catch((error) => {
-    console.error("Redirect error:", error);
-  });
-
-// ── AUTH STATE ──
+// ── AUTH STATE ────────────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
-  console.log("AUTH STATE:", user);
   const authScreen = document.getElementById('auth-screen');
-  const appEl = document.getElementById('app');
+  const appEl      = document.getElementById('app');
   if (user) {
     currentUser = user;
-    isAdmin = ADMIN_EMAILS.includes(user.email);
+    // Fetch role from Firestore
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (!snap.exists()) {
+      // User has no profile — sign them out (accounts must be created by admin)
+      await signOut(auth);
+      showAuthError('Account not found. Contact your administrator.');
+      return;
+    }
+    const profile = snap.data();
+    currentRole = profile.role || 'staff';
+    currentName = profile.name || user.email.split('@')[0];
+
+    // Expose globals for non-module JS
+    window._currentUser = { uid: user.uid, email: user.email, name: currentName, role: currentRole };
+
+    // Update UI
     authScreen.style.display = 'none';
-    appEl.style.display = 'flex';
-    document.getElementById('user-display-name').textContent = user.displayName || user.email.split('@')[0];
-    document.getElementById('user-display-email').textContent = user.email;
-    if (isAdmin) document.getElementById('admin-nav').style.display = 'block';
+    appEl.style.display      = 'flex';
+    document.getElementById('user-display-name').textContent  = currentName;
+    document.getElementById('user-display-email').textContent = currentRole === 'admin' ? 'Administrator' : 'Staff';
+    document.getElementById('user-avatar-initial').textContent = currentName.charAt(0).toUpperCase();
+
+    // Role-based nav visibility
+    const adminOnlyEls = document.querySelectorAll('.admin-only');
+    adminOnlyEls.forEach(el => {
+      el.style.display = currentRole === 'admin' ? '' : 'none';
+    });
+
     await loadCloudData();
     window._fbLoaded = true;
     if (window.appReady) window.appReady();
   } else {
-    currentUser = null;
+    currentUser = null; currentRole = null;
+    window._currentUser = null;
     authScreen.style.display = 'flex';
-    appEl.style.display = 'none';
+    appEl.style.display      = 'none';
   }
 });
 
-// ── GOOGLE LOGIN (popup with redirect fallback) ──
-window.loginWithGoogle = async () => {
-  const btn = document.getElementById('btn-google');
-  btn.disabled = true;
-  btn.textContent = 'Please wait...';
-  try {
-    console.log("Trying popup login...");
-    await signInWithPopup(auth, provider);
-    console.log("Popup login success");
-    // CRITICAL FIX — force UI sync after popup
-    window.location.reload();
-  } catch (err) {
-    console.warn("Popup failed, switching to redirect...", err);
-    await signInWithRedirect(auth, provider);
-  }
-};
-
-// ── EMAIL LOGIN ──
+// ── LOGIN (email/password only — no self sign-up) ─────────────
 window.loginWithEmail = async () => {
   const email = document.getElementById('auth-email').value.trim();
   const pass  = document.getElementById('auth-password').value;
-  if (!email || !pass) return showAuthError('Please enter email and password.');
+  if (!email || !pass) return showAuthError('Please enter your email and password.');
   const btn = document.getElementById('btn-email-login');
   btn.disabled = true; btn.textContent = 'Signing in...';
   try {
@@ -103,33 +94,13 @@ window.loginWithEmail = async () => {
   } catch (err) {
     btn.disabled = false; btn.textContent = 'Sign In';
     showAuthError(
-      err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found'
+      (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')
         ? 'Incorrect email or password.' : err.message
     );
   }
 };
 
-// ── SIGN UP ──
-window.signUpWithEmail = async () => {
-  const email = document.getElementById('auth-email').value.trim();
-  const pass  = document.getElementById('auth-password').value;
-  if (!email || !pass) return showAuthError('Please enter email and password.');
-  if (pass.length < 6) return showAuthError('Password must be at least 6 characters.');
-  const btn = document.getElementById('btn-email-signup');
-  btn.disabled = true; btn.textContent = 'Creating account...';
-  try {
-    const res = await createUserWithEmailAndPassword(auth, email, pass);
-    await setDoc(doc(db, 'users', res.user.uid), { email, createdAt: new Date().toISOString() });
-  } catch (err) {
-    btn.disabled = false; btn.textContent = 'Sign Up';
-    showAuthError(
-      err.code === 'auth/email-already-in-use'
-        ? 'Email already in use — try signing in.' : err.message
-    );
-  }
-};
-
-// ── SIGN OUT ──
+// ── SIGN OUT ─────────────────────────────────────────────────
 window.signOutUser = async () => {
   if (!confirm('Sign out?')) return;
   await signOut(auth);
@@ -141,11 +112,13 @@ function showAuthError(msg) {
   if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 
-// ── LOAD CLOUD DATA ──
+// ── LOAD CLOUD DATA ───────────────────────────────────────────
 async function loadCloudData() {
   if (!currentUser) return;
   try {
     setCloudStatus('Syncing...');
+
+    // Config/company/prices always from current user's profile
     const [cfgSnap, coSnap, prSnap] = await Promise.all([
       getDoc(doc(db, 'users', currentUser.uid, 'meta', 'config')),
       getDoc(doc(db, 'users', currentUser.uid, 'meta', 'company')),
@@ -154,12 +127,32 @@ async function loadCloudData() {
     if (cfgSnap.exists()) window._cloudConfig  = cfgSnap.data();
     if (coSnap.exists())  window._cloudCompany = coSnap.data();
     if (prSnap.exists())  window._cloudPrices  = prSnap.data();
-    const [audSnap, qSnap] = await Promise.all([
-      getDocs(query(collection(db, 'users', currentUser.uid, 'audits'), orderBy('createdAt', 'desc'))),
-      getDocs(query(collection(db, 'users', currentUser.uid, 'quotes'), orderBy('createdAt', 'desc'))),
-    ]);
-    window._cloudAudits = audSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    window._cloudQuotes = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if (currentRole === 'admin') {
+      // Admin loads ALL audits and quotes across all users
+      const usersSnap = await getDocs(collection(db, 'users'));
+      let allAudits = [], allQuotes = [];
+      for (const userDoc of usersSnap.docs) {
+        const uid = userDoc.id;
+        const udata = userDoc.data();
+        const [aSnap, qSnap] = await Promise.all([
+          getDocs(query(collection(db, 'users', uid, 'audits'), orderBy('createdAt', 'desc'))),
+          getDocs(query(collection(db, 'users', uid, 'quotes'), orderBy('createdAt', 'desc'))),
+        ]);
+        aSnap.docs.forEach(d => allAudits.push({ id: d.id, ...d.data(), _ownerUid: uid, _ownerName: udata.name || udata.email || uid }));
+        qSnap.docs.forEach(d => allQuotes.push({ id: d.id, ...d.data(), _ownerUid: uid, _ownerName: udata.name || udata.email || uid }));
+      }
+      window._cloudAudits = allAudits;
+      window._cloudQuotes = allQuotes;
+    } else {
+      // Staff loads own audits/quotes only
+      const [audSnap, qSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users', currentUser.uid, 'audits'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'users', currentUser.uid, 'quotes'), orderBy('createdAt', 'desc'))),
+      ]);
+      window._cloudAudits = audSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      window._cloudQuotes = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
     setCloudStatus('Synced ✓', 3000);
   } catch(e) {
     console.error('Load error:', e);
@@ -167,36 +160,48 @@ async function loadCloudData() {
   }
 }
 
-// ── SAVE AUDIT ──
+// ── SAVE AUDIT ────────────────────────────────────────────────
 window.cloudSaveAudit = async (audit) => {
   if (!currentUser) return null;
   try {
     const { id, ...data } = audit;
+    // Tag audit with creator info
+    data.createdBy = { uid: currentUser.uid, name: currentName, role: currentRole };
     const ref = await addDoc(collection(db, 'users', currentUser.uid, 'audits'), data);
     setCloudStatus('Saved ✓', 2000);
     return ref.id;
   } catch(e) { console.error('Save audit:', e); return null; }
 };
 
-// ── DELETE AUDIT ──
-window.cloudDeleteAudit = async (id) => {
-  if (!currentUser || !id) return;
-  try { await deleteDoc(doc(db, 'users', currentUser.uid, 'audits', id)); } catch(e) {}
+// ── DELETE AUDIT (admin only) ─────────────────────────────────
+window.cloudDeleteAudit = async (id, ownerUid) => {
+  if (!currentUser) return;
+  // Staff can only delete their own; admin can delete anyone's
+  const targetUid = (currentRole === 'admin' && ownerUid) ? ownerUid : currentUser.uid;
+  try { await deleteDoc(doc(db, 'users', targetUid, 'audits', id)); } catch(e) { console.error(e); }
 };
 
-// ── SAVE QUOTE ──
+// ── DELETE QUOTE (admin only) ─────────────────────────────────
+window.cloudDeleteQuote = async (id, ownerUid) => {
+  if (!currentUser) return;
+  const targetUid = (currentRole === 'admin' && ownerUid) ? ownerUid : currentUser.uid;
+  try { await deleteDoc(doc(db, 'users', targetUid, 'quotes', id)); } catch(e) { console.error(e); }
+};
+
+// ── SAVE QUOTE ────────────────────────────────────────────────
 window.cloudSaveQuote = async (quote) => {
   if (!currentUser) return null;
   try {
     const { id, ...data } = quote;
+    data.createdBy = { uid: currentUser.uid, name: currentName, role: currentRole };
     const ref = await addDoc(collection(db, 'users', currentUser.uid, 'quotes'), data);
     return ref.id;
   } catch(e) { console.error('Save quote:', e); return null; }
 };
 
-// ── SAVE SETTINGS ──
+// ── SAVE SETTINGS (admin only) ────────────────────────────────
 window.cloudSaveSettings = async (config, company, prices) => {
-  if (!currentUser) return;
+  if (!currentUser || currentRole !== 'admin') return;
   try {
     await Promise.all([
       setDoc(doc(db, 'users', currentUser.uid, 'meta', 'config'),  config),
@@ -206,40 +211,110 @@ window.cloudSaveSettings = async (config, company, prices) => {
   } catch(e) { console.error('Save settings:', e); }
 };
 
-// ── ADMIN: ALL USERS ──
+// ── ADMIN: CREATE STAFF ACCOUNT ───────────────────────────────
+window.adminCreateStaff = async () => {
+  if (currentRole !== 'admin') return;
+  const name  = document.getElementById('new-staff-name').value.trim();
+  const email = document.getElementById('new-staff-email').value.trim();
+  const pass  = document.getElementById('new-staff-pass').value;
+  const role  = document.getElementById('new-staff-role').value;
+  const errEl = document.getElementById('staff-create-error');
+  errEl.style.display = 'none';
+  if (!name || !email || !pass) { errEl.textContent = 'All fields required.'; errEl.style.display = 'block'; return; }
+  if (pass.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+  const btn = document.getElementById('btn-create-staff');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  try {
+    // Create Firebase Auth account
+    const res = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(res.user, { displayName: name });
+    // Write role to Firestore
+    await setDoc(doc(db, 'users', res.user.uid), {
+      name, email, role,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.uid
+    });
+    // Sign admin back in (createUserWithEmailAndPassword switches active user)
+    await signOut(auth);
+    await signInWithEmailAndPassword(auth, currentUser.email, '');
+    // Can't re-auth silently — reload instead
+    document.getElementById('new-staff-name').value  = '';
+    document.getElementById('new-staff-email').value = '';
+    document.getElementById('new-staff-pass').value  = '';
+    btn.disabled = false; btn.textContent = 'Create Account';
+    showStaffCreatedToast(name, role);
+    loadAdminView();
+  } catch(err) {
+    btn.disabled = false; btn.textContent = 'Create Account';
+    errEl.textContent = err.code === 'auth/email-already-in-use'
+      ? 'Email already in use.' : err.message;
+    errEl.style.display = 'block';
+  }
+};
+
+function showStaffCreatedToast(name, role) {
+  const t = document.getElementById('staff-toast');
+  if (!t) return;
+  t.textContent = `${role === 'admin' ? 'Admin' : 'Staff'} account created for ${name}`;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+// ── ADMIN: LOAD ALL STAFF VIEW ────────────────────────────────
 window.loadAdminView = async () => {
-  if (!isAdmin) return;
+  if (currentRole !== 'admin') return;
   const list = document.getElementById('admin-users-list');
   list.innerHTML = '<div class="empty-state"><div class="empty-title">Loading...</div></div>';
   try {
     const usersSnap = await getDocs(collection(db, 'users'));
     list.innerHTML = '';
     for (const userDoc of usersSnap.docs) {
-      const uid  = userDoc.id;
-      const data = userDoc.data();
+      const uid   = userDoc.id;
+      const udata = userDoc.data();
       const audSnap = await getDocs(collection(db, 'users', uid, 'audits'));
       const div = document.createElement('div');
       div.className = 'audit-item';
-      div.innerHTML = `<div class="audit-icon">&#128100;</div>
+      const roleLabel = udata.role === 'admin' ? '👑 Admin' : '👤 Staff';
+      const joined = udata.createdAt ? new Date(udata.createdAt).toLocaleDateString() : '—';
+      div.innerHTML = `
+        <div class="audit-icon">${udata.role === 'admin' ? '👑' : '👤'}</div>
         <div class="audit-meta">
-          <div class="audit-title">${data.email || uid}</div>
-          <div class="audit-sub">${audSnap.size} audits &middot; Joined ${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '&mdash;'}</div>
+          <div class="audit-title">${udata.name || '—'} <span style="font-size:11px;color:var(--text3);font-weight:400">${udata.email || uid}</span></div>
+          <div class="audit-sub">${roleLabel} &middot; ${audSnap.size} audits &middot; Joined ${joined}</div>
         </div>
-        <span class="badge badge-blue">${audSnap.size} audits</span>`;
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge ${udata.role === 'admin' ? 'badge-orange' : 'badge-blue'}">${audSnap.size} audits</span>
+          ${uid !== currentUser.uid ? `<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:#ef4444" onclick="adminDeleteUser('${uid}','${udata.name||udata.email}')">Remove</button>` : '<span style="font-size:11px;color:var(--text3)">You</span>'}
+        </div>`;
       list.appendChild(div);
     }
-    if (!list.children.length) list.innerHTML = '<div class="empty-state"><div class="empty-title">No users yet</div></div>';
+    if (!list.children.length) list.innerHTML = '<div class="empty-state"><div class="empty-title">No users found</div></div>';
   } catch(e) {
     list.innerHTML = '<div class="empty-state"><div class="empty-title">Error loading users</div></div>';
     console.error(e);
   }
 };
 
+// ── ADMIN: REMOVE STAFF (Firestore profile only — Auth account stays) ──
+window.adminDeleteUser = async (uid, name) => {
+  if (currentRole !== 'admin') return;
+  if (!confirm(`Remove ${name}? Their audits will remain but they won't be able to log in.`)) return;
+  try {
+    await deleteDoc(doc(db, 'users', uid));
+    loadAdminView();
+  } catch(e) { console.error(e); alert('Error removing user.'); }
+};
+
+// ── CLOUD STATUS ──────────────────────────────────────────────
 function setCloudStatus(msg, clearAfter) {
   const el = document.getElementById('cloud-status');
   if (el) el.textContent = msg;
   if (clearAfter) setTimeout(() => { if (el) el.textContent = ''; }, clearAfter);
 }
+
+// ── EXPOSE ROLE CHECK FOR NON-MODULE JS ───────────────────────
+window.isAdminUser = () => currentRole === 'admin';
+window.getCurrentUser = () => ({ uid: currentUser?.uid, name: currentName, role: currentRole });
 </script>
 <style>
 :root {
@@ -471,32 +546,21 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 <div id="auth-screen" style="display:flex;position:fixed;inset:0;background:#0a0e17;z-index:999;align-items:center;justify-content:center;">
   <div style="background:#111827;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:40px;width:400px;max-width:95vw">
     <div style="text-align:center;margin-bottom:28px">
-      <div style="width:48px;height:48px;background:#f97316;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px">⚡</div>
-      <div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#f1f5f9">SolarIQ</div>
-      <div style="font-size:13px;color:#64748b;margin-top:4px">Energy Audit System</div>
+      <div style="width:52px;height:52px;background:#f97316;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px">⚡</div>
+      <div style="font-family:Syne,sans-serif;font-size:24px;font-weight:800;color:#f1f5f9">SolarIQ</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Energy Audit System — Staff Login</div>
     </div>
     <div id="auth-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px"></div>
     <div style="margin-bottom:12px">
       <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Email</label>
-      <input type="email" id="auth-email" class="form-input" placeholder="you@example.com">
+      <input type="email" id="auth-email" class="form-input" placeholder="you@company.com" onkeydown="if(event.key==='Enter')loginWithEmail()">
     </div>
-    <div style="margin-bottom:16px">
+    <div style="margin-bottom:20px">
       <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Password</label>
-      <input type="password" id="auth-password" class="form-input" placeholder="••••••••">
+      <input type="password" id="auth-password" class="form-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')loginWithEmail()">
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button id="btn-email-login" data-label="Sign In" onclick="loginWithEmail()" class="btn btn-primary" style="flex:1">Sign In</button>
-      <button id="btn-email-signup" data-label="Sign Up" onclick="signUpWithEmail()" class="btn btn-secondary" style="flex:1">Sign Up</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div>
-      <div style="font-size:11px;color:#64748b">or</div>
-      <div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div>
-    </div>
-    <button id="btn-google" data-label="Continue with Google" onclick="loginWithGoogle()" class="btn btn-secondary" style="width:100%;justify-content:center;gap:10px">
-      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Continue with Google
-    </button>
+    <button id="btn-email-login" onclick="loginWithEmail()" class="btn btn-primary" style="width:100%;justify-content:center;font-size:15px;padding:12px">Sign In</button>
+    <div style="margin-top:16px;text-align:center;font-size:12px;color:#475569">Contact your administrator to create or reset your account.</div>
   </div>
 </div>
 
@@ -520,13 +584,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div class="nav-section">Data</div>
     <button class="nav-item" onclick="showPage('audits')"><span class="nav-icon">📋</span><span>Saved Audits</span><span class="nav-badge" id="audit-count">0</span></button>
     <button class="nav-item" onclick="showPage('quotes')"><span class="nav-icon">📄</span><span>Quotes</span><span class="nav-badge" id="quote-count">0</span></button>
-    <div class="nav-section">Settings</div>
-    <button class="nav-item" onclick="showPage('pricing')"><span class="nav-icon">₦</span><span>Price Lists</span></button>
-    <button class="nav-item" onclick="showPage('settings')"><span class="nav-icon">⚙</span><span>Settings</span></button>
-    <div id="admin-nav" style="display:none">
-      <div class="nav-section">Admin</div>
-      <button class="nav-item" onclick="showPage('admin');loadAdminView()"><span class="nav-icon">👑</span><span>All Users</span></button>
-    </div>
+    <div class="nav-section admin-only" style="display:none">Admin</div>
+    <button class="nav-item admin-only" style="display:none" onclick="showPage('pricing')"><span class="nav-icon">₦</span><span>Price Lists</span></button>
+    <button class="nav-item admin-only" style="display:none" onclick="showPage('settings')"><span class="nav-icon">⚙</span><span>Settings</span></button>
+    <button class="nav-item admin-only" style="display:none" onclick="showPage('admin');loadAdminView()"><span class="nav-icon">👑</span><span>Team &amp; Users</span></button>
   </nav>
   <div class="sidebar-footer">
     <div style="font-size:11px;color:var(--text3);text-align:center;padding:4px 0;min-height:18px" id="cloud-status"></div>
@@ -534,7 +595,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="user-avatar" id="user-avatar-initial">U</div>
       <div class="user-info">
         <div class="user-name" id="user-display-name">User</div>
-        <div class="user-role" id="user-display-email">Sign out</div>
+        <div class="user-role" id="user-display-email">Staff</div>
       </div>
     </div>
   </div>
@@ -710,16 +771,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <div class="breakdown-label">Adjusted Energy Demand<span>+20% system losses</span></div>
           <div class="breakdown-val" style="color:var(--accent)" id="calc-adjusted">0 Wh</div>
         </div>
-        <div class="breakdown-item">
-          <div class="breakdown-label">Panel Capacity<span>Adjusted ÷ sun hrs</span></div>
-          <div class="breakdown-val" id="calc-panel">0 W</div>
-        </div>
-        <div class="breakdown-item">
-          <div class="breakdown-label">Battery Bank<span>Energy storage needed</span></div>
-          <div class="breakdown-val" id="calc-battery">0 kWh</div>
-        </div>
         <div class="breakdown-item" style="background:rgba(59,130,246,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
-          <div class="breakdown-label">Battery Capacity<span>Adj. Energy ÷ (V × DoD × Eff.)</span></div>
+          <div class="breakdown-label">Battery Capacity (Ah)<span>Adj. Energy ÷ (V × DoD × Eff.) × Days</span></div>
           <div class="breakdown-val" style="color:var(--blue)" id="calc-batt-ah">0 Ah</div>
         </div>
         <div class="breakdown-item">
@@ -756,7 +809,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         </div>
         <div class="breakdown-item" style="background:rgba(234,179,8,.05);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
           <div class="breakdown-label">Inverter Size (kVA)<span>Inverter W ÷ 0.8 power factor ÷ 1000</span></div>
-          <div class="breakdown-val" style="color:var(--yellow)" id="calc-inverter">0 kVA</div>
+          <div class="breakdown-val" style="color:var(--yellow)" id="calc-inverter">0 kVA @ 0V</div>
         </div>
         <div class="breakdown-item">
           <div class="breakdown-label">Selected Inverter Size<span>Admin override from Settings</span></div>
@@ -779,6 +832,36 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <button class="btn btn-primary" style="flex:1" onclick="saveAudit()">💾 Save Audit</button>
           <button class="btn btn-green" style="flex:1" onclick="generateQuote()">📄 Generate Quote</button>
         </div>
+      </div>
+
+      <!-- FINAL AUDIT REPORT CARD -->
+      <div class="card" style="margin-top:16px;border:2px solid var(--accent);background:linear-gradient(135deg,#fff7ed 0%,#ffffff 100%)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="display:inline-block;width:6px;height:22px;background:var(--accent);border-radius:2px"></span>
+          <div style="font-size:14px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.06em">Final Audit Report</div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;border-radius:8px;overflow:hidden">
+          <tr style="background:var(--accent)">
+            <th style="padding:9px 12px;color:white;text-align:left;font-weight:700">Parameter</th>
+            <th style="padding:9px 12px;color:white;text-align:center;font-weight:700">Calculated</th>
+            <th style="padding:9px 12px;color:white;text-align:center;font-weight:700">Selected</th>
+          </tr>
+          <tr style="background:#fff">
+            <td style="padding:11px 12px;font-weight:700;color:#111;border-bottom:1px solid #fed7aa">⚡ Load / Inverter</td>
+            <td style="padding:11px 12px;text-align:center;border-bottom:1px solid #fed7aa;color:#374151" id="rep-inverter-calc">— W | — kVA</td>
+            <td style="padding:11px 12px;text-align:center;border-bottom:1px solid #fed7aa;font-weight:800;color:var(--accent);font-size:15px" id="rep-inverter-sel">— kVA</td>
+          </tr>
+          <tr style="background:#fff7ed">
+            <td style="padding:11px 12px;font-weight:700;color:#111;border-bottom:1px solid #fed7aa">🔋 Storage / Batteries</td>
+            <td style="padding:11px 12px;text-align:center;border-bottom:1px solid #fed7aa;color:#374151" id="rep-battery-calc">— Wh | — Ah</td>
+            <td style="padding:11px 12px;text-align:center;border-bottom:1px solid #fed7aa;font-weight:800;color:var(--accent);font-size:15px" id="rep-battery-sel">— batteries</td>
+          </tr>
+          <tr style="background:#fff">
+            <td style="padding:11px 12px;font-weight:700;color:#111">☀️ Solar / Panels</td>
+            <td style="padding:11px 12px;text-align:center;color:#374151" id="rep-solar-calc">— W | — W adj.</td>
+            <td style="padding:11px 12px;text-align:center;font-weight:800;color:var(--accent);font-size:15px" id="rep-solar-sel">— panels</td>
+          </tr>
+        </table>
       </div>
     </div>
   </div>
@@ -892,10 +975,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <input type="number" class="form-input" id="cfg-inv-eff" value="1.25" min="0.1" step="0.05">
           <div style="font-size:11px;color:var(--text3);margin-top:4px">Multiplier applied to Total Load</div>
         </div>
-        <div class="form-group"><label class="form-label">Selected Inverter Size (kVA)</label>
-          <input type="number" class="form-input" id="cfg-selected-inv-kva" value="5.0" min="0.5" step="0.5">
-          <div style="font-size:11px;color:var(--text3);margin-top:4px">Manual override — shown on final report</div>
+        <div class="form-group"><label class="form-label">Manual Override (kVA)</label>
+          <input type="number" class="form-input" id="cfg-selected-inv-kva" value="0" min="0" step="0.5">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">0 = auto round-up to next standard size</div>
         </div>
+      </div>
+      <div class="form-group"><label class="form-label">Standard Sizes (kVA, comma-separated)</label>
+        <input type="text" class="form-input" id="cfg-inv-std-sizes" value="1, 1.5, 2, 3, 5, 7.5, 10, 15, 20">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Calc'd kVA rounds up to the next size in this list</div>
       </div>
       <div class="form-group"><label class="form-label">Inverter Voltage (V)</label>
         <select class="form-input" id="cfg-inv-voltage">
@@ -903,6 +990,42 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <option value="24">24V</option>
           <option value="48" selected>48V</option>
         </select>
+      </div>
+      <div class="divider"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Balance of System Pricing</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Each item can be a flat fee (set in Pricing tab) or scaled per unit. Scaled keeps small systems affordable.</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Cabling Mode</label>
+          <select class="form-input" id="cfg-cabling-mode">
+            <option value="flat">Flat fee</option>
+            <option value="scaled">Scaled — ₦/kVA</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Cabling — ₦ per kVA</label>
+          <input type="number" class="form-input" id="cfg-cabling-per-kva" value="15000" min="0" step="500">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Mounting Mode</label>
+          <select class="form-input" id="cfg-mounting-mode">
+            <option value="flat">Flat fee</option>
+            <option value="scaled">Scaled — ₦/panel</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Mounting — ₦ per panel</label>
+          <input type="number" class="form-input" id="cfg-mounting-per-panel" value="8000" min="0" step="500">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Accessories Mode</label>
+          <select class="form-input" id="cfg-accessories-mode">
+            <option value="flat">Flat fee</option>
+            <option value="scaled">Scaled — ₦/kVA</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Accessories — ₦ per kVA</label>
+          <input type="number" class="form-input" id="cfg-accessories-per-kva" value="8000" min="0" step="500">
+        </div>
       </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save Config</button>
     </div>
@@ -919,12 +1042,66 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 <!-- ADMIN PAGE -->
 <div class="page" id="page-admin">
   <div class="page-header">
-    <div class="page-title">&#128081; Admin — All Users</div>
-    <div class="page-desc">Overview of all registered engineers and their audits</div>
+    <div>
+      <div class="page-title">👑 Team &amp; Users</div>
+      <div class="page-desc">Manage staff accounts and view all audit activity</div>
+    </div>
   </div>
+
+  <!-- Toast notification -->
+  <div id="staff-toast" style="display:none;position:fixed;top:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.3)"></div>
+
+  <!-- Create staff account -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title" style="margin-bottom:16px">Create Staff Account</div>
+    <div id="staff-create-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-input" id="new-staff-name" placeholder="e.g. Emeka Okafor">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" class="form-input" id="new-staff-email" placeholder="emeka@solariq.ng">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Temporary Password</label>
+        <input type="password" class="form-input" id="new-staff-pass" placeholder="Min. 6 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select class="form-input" id="new-staff-role">
+          <option value="staff">Staff — can create audits &amp; quotes</option>
+          <option value="admin">Admin — full access</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:4px">
+      <button id="btn-create-staff" class="btn btn-primary" onclick="adminCreateStaff()">+ Create Account</button>
+      <span style="font-size:12px;color:var(--text3);margin-left:12px">Staff will sign in with this email &amp; password. Ask them to change their password after first login.</span>
+    </div>
+  </div>
+
+  <!-- All team members -->
   <div class="card">
-    <div class="card-title">Registered Users</div>
-    <div id="admin-users-list"><div class="empty-state"><div class="empty-icon">&#128100;</div><div class="empty-title">Loading...</div></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="card-title">Team Members</div>
+      <button class="btn btn-ghost" onclick="loadAdminView()" style="font-size:12px">⟳ Refresh</button>
+    </div>
+    <div id="admin-users-list">
+      <div class="empty-state"><div class="empty-icon">👤</div><div class="empty-title">Loading team...</div></div>
+    </div>
+  </div>
+
+  <!-- All audits across staff -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-title" style="margin-bottom:4px">All Staff Audits</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Every audit created by your team, newest first</div>
+    <div id="admin-all-audits">
+      <div class="empty-state"><div class="empty-title">Load the page to see audits</div></div>
+    </div>
   </div>
 </div>
 
@@ -941,7 +1118,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div id="modal-audit-body"></div>
     <div style="display:flex;gap:10px;margin-top:20px">
       <button class="btn btn-primary" onclick="generateQuoteFromModal()">📄 Generate Quote</button>
-      <button class="btn btn-danger" onclick="deleteAuditFromModal()">🗑 Delete</button>
+      <button class="btn btn-danger admin-only" style="display:none" onclick="deleteAuditFromModal()">🗑 Delete</button>
     </div>
   </div>
 </div>
@@ -1014,9 +1191,14 @@ const DEFAULT_CONFIG = {
   individualPanelW: 400,
   energyUsedPct: 0.90,
   inverterEfficiency: 1.25,
-  selectedInverterKVA: 5.0,
+  selectedInverterKVA: 0,                                    // 0 = auto round-up
+  inverterStandardSizes: [1, 1.5, 2, 3, 5, 7.5, 10, 15, 20], // standard kVA sizes
   daysOfAutonomy: 1,
-  inverterVoltage: 48
+  inverterVoltage: 48,
+  // Balance of System pricing modes — 'flat' or 'scaled'
+  cablingMode: 'flat',         cablingPerKVA: 15000,
+  mountingMode: 'flat',        mountingPerPanel: 8000,
+  accessoriesMode: 'flat',     accessoriesPerKVA: 8000,
 };
 
 const DEFAULT_COMPANY = {
@@ -1043,13 +1225,21 @@ let state = {
   currentAuditId: null,
   activePriceTab: 'user',
 };
-function initState() {
+// ============================================================
+// INIT APPLIANCES — ensures state.appliances has a valid
+// { qty, hours } object for every device. Safe to call multiple times.
+// ============================================================
+function initAppliances() {
+  state.appliances = state.appliances || {};
   DEFAULT_APPLIANCES.forEach(a => {
-    if (!state.appliances[a.id] || typeof state.appliances[a.id] !== 'object') {
+    const existing = state.appliances[a.id];
+    if (!existing || typeof existing !== 'object' || existing.qty === undefined) {
       state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
     }
   });
 }
+// Backwards-compat alias — older call sites use initState
+const initState = initAppliances;
 
 let currentModalAudit = null;
 
@@ -1085,12 +1275,7 @@ function loadFromStorage() {
     state.company = parsed.company || { ...DEFAULT_COMPANY };
   }
   // Ensure every appliance has a valid {qty, hours} object
-  DEFAULT_APPLIANCES.forEach(a => {
-    const existing = state.appliances[a.id];
-    if (!existing || typeof existing !== 'object' || existing.qty === undefined) {
-      state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
-    }
-  });
+  initAppliances();
 }
 
 function saveToStorage() {
@@ -1120,6 +1305,7 @@ function showPage(id) {
   if (id === 'pricing') renderPriceTable();
   if (id === 'dashboard') updateDashboard();
   if (id === 'new-audit') recalculate();
+  if (id === 'admin') { loadAdminView(); populateAdminAudits(); }
 }
 
 // ============================================================
@@ -1185,7 +1371,6 @@ function adjustQty(id, delta) {
   const qtyEl = document.getElementById('qty-'+id);
   if (qtyEl) qtyEl.textContent = d.qty;
   updateRowCalc(id);
-  updateTotals();
   recalculate();
 }
 
@@ -1196,44 +1381,47 @@ function updateHours(id, val) {
   }
   state.appliances[id].hours = Math.max(0, Math.min(24, parseFloat(val)||0));
   updateRowCalc(id);
-  updateTotals();
   recalculate();
 }
 
-// Direct tfoot updater — bypasses calcSystem for instant feedback
-function updateTotals() {
-  console.log('updateTotals called:', state.appliances);
-  let totalLoad = 0, totalEnergyWh = 0;
-  DEFAULT_APPLIANCES.forEach(a => {
-    const d = state.appliances[a.id];
-    if (d && typeof d === 'object') {
-      const load = (d.qty||0) * a.watts;
-      totalLoad += load;
-      totalEnergyWh += load * (d.hours||0);
-    }
-  });
-  const adjustedWh = totalEnergyWh * 1.20;
-  const fmt = n => Math.round(n).toLocaleString('en-NG');
-  const tfLoad = document.getElementById('tfoot-load');
-  const tfEnergy = document.getElementById('tfoot-energy');
-  const tfAdj = document.getElementById('tfoot-adjusted');
-  const badge = document.getElementById('total-load-badge');
-
-  if (tfLoad)   tfLoad.textContent   = fmt(totalLoad) + ' W';
-  if (tfEnergy) tfEnergy.textContent = fmt(totalEnergyWh) + ' Wh';
-  if (tfAdj)    tfAdj.textContent    = fmt(adjustedWh) + ' Wh  /  ' + (adjustedWh/1000).toFixed(2) + ' kWh';
-  if (badge)    badge.textContent    = fmt(totalLoad) + 'W load · ' + (adjustedWh/1000).toFixed(2) + ' kWh adjusted';
+function updateRowCalc(id) {
+  const a = DEFAULT_APPLIANCES.find(x => x.id === id);
+  if (!a) return;
+  const d = state.appliances?.[id] || {};
+  const qty   = Number(d.qty)    || 0;
+  const hours = Number(d.hours)  || 0;
+  const watts = Number(a.watts)  || 0;
+  const deviceLoad   = watts * qty;
+  const deviceEnergy = deviceLoad * hours;
+  const dloadEl   = document.getElementById('dload-'   + id);
+  const denergyEl = document.getElementById('denergy-' + id);
+  if (dloadEl)   dloadEl.textContent   = deviceLoad.toLocaleString('en-NG')   + ' W';
+  if (denergyEl) denergyEl.textContent = deviceEnergy.toLocaleString('en-NG') + ' Wh';
 }
 
-function updateRowCalc(id) {
-  const a = DEFAULT_APPLIANCES.find(x=>x.id===id);
-  const d = state.appliances[id];
-  const deviceLoad = d.qty * a.watts;
-  const deviceEnergy = deviceLoad * d.hours;
-  const dloadEl = document.getElementById('dload-'+id);
-  const denergyEl = document.getElementById('denergy-'+id);
-  if (dloadEl) dloadEl.textContent = deviceLoad + ' W';
-  if (denergyEl) denergyEl.textContent = deviceEnergy + ' Wh';
+// ============================================================
+// CALCULATE TOTALS — defensive helper used by calcSystem
+// Returns { totalLoad, totalEnergy, deviceRows }
+// All inputs coerced via Number(...) || 0 to survive bad state
+// ============================================================
+function calculateTotals() {
+  let totalLoad = 0;
+  let totalEnergy = 0;
+  const deviceRows = [];
+  DEFAULT_APPLIANCES.forEach(device => {
+    const data = state.appliances?.[device.id] || {};
+    const qty   = Number(data.qty)   || 0;
+    const hours = Number(data.hours) || 0;
+    const watts = Number(device.watts) || 0;
+    const load   = watts * qty;
+    const energy = load * hours;
+    totalLoad   += load;
+    totalEnergy += energy;
+    if (load > 0) {
+      deviceRows.push({ name: device.name, watts, qty, hours, deviceLoad: load, deviceEnergy: energy });
+    }
+  });
+  return { totalLoad, totalEnergy, deviceRows };
 }
 
 // ============================================================
@@ -1248,20 +1436,15 @@ function calcSystem(appliances, opts) {
 
   // Per-device: Device Load (W) = Watts × Qty
   // Per-device: Device Energy (Wh) = Device Load × Hours
-  let totalLoad = 0;       // Sum of all Device Loads (W)
-  let totalEnergyWh = 0;   // Sum of all Device Energies (Wh)
-  const deviceRows = [];
-
-  DEFAULT_APPLIANCES.forEach(a => {
-    const raw = appliances[a.id];
-    const d = (raw && typeof raw === 'object' && raw.qty !== undefined)
-      ? raw : { qty: 0, hours: a.defaultHours };
-    const deviceLoad = d.qty * a.watts;           // W
-    const deviceEnergy = deviceLoad * d.hours;    // Wh
-    totalLoad += deviceLoad;
-    totalEnergyWh += deviceEnergy;
-    if (deviceLoad > 0) deviceRows.push({ name: a.name, watts: a.watts, qty: d.qty, hours: d.hours, deviceLoad, deviceEnergy });
-  });
+  // Delegated to calculateTotals() which uses Number(...) || 0 guards
+  const totals = calculateTotals();
+  if (!totals) {
+    console.error('calculateTotals returned no result');
+    return null;
+  }
+  const totalLoad     = totals.totalLoad;       // Sum of Device Loads (W)
+  const totalEnergyWh = totals.totalEnergy;     // Sum of Device Energies (Wh)
+  const deviceRows    = totals.deviceRows;
 
   const totalEnergyKWh = totalEnergyWh / 1000;
 
@@ -1278,14 +1461,14 @@ function calcSystem(appliances, opts) {
   // Inverter Size (kVA) = Inverter Size (W) ÷ Power Factor (0.8) ÷ 1000
   const inverterKVA = Math.round((inverterSizeW / 0.8) / 1000 * 10) / 10;
 
-  // Battery Capacity (Ah) = Adjusted Energy Demand (Wh) / (Voltage × DoD × Efficiency)
-  const battCapacityAh = adjustedEnergyWh / ((cfg.battVoltage||48) * (cfg.battDod||0.8) * (cfg.battEfficiency||0.95));
+  // Battery Capacity (Ah) = (Adjusted Energy Wh / (Voltage × DoD × Efficiency)) × Days of Autonomy
+  const battCapacityAh = (adjustedEnergyWh / ((cfg.battVoltage||48) * (cfg.battDod||0.8) * (cfg.battEfficiency||0.95))) * (cfg.daysOfAutonomy||1);
 
   // Battery Runtime (hrs) = Days of Autonomy × 24
   const battRuntimeHrs = (cfg.daysOfAutonomy||1) * 24;
 
-  // Total Batteries — based on battery type, battery voltage, inverter voltage
-  const rawBatteries = Math.ceil(battCapacityAh / (cfg.individualBattAh || 200));
+  // Total Batteries — round DOWN to nearest whole number
+  const rawBatteries = Math.floor(battCapacityAh / (cfg.individualBattAh || 200));
   const bVolt = cfg.battVoltage || 48;
   const iVolt = cfg.inverterVoltage || 48;
   let totalBatteries = 0;
@@ -1323,21 +1506,49 @@ function calcSystem(appliances, opts) {
   // Number of Panels = ceil(Adjusted Panel Capacity / (Individual Panel W × 0.7))
   const numPanels = Math.ceil(adjustedPanelW / ((cfg.individualPanelW || 400) * 0.7));
 
+  // Total installed panel wattage (what's actually being sold)
+  const panelW = numPanels * (cfg.individualPanelW || 400);
+
   const batteryPrice = batteryType === 'lithium' ? prices.batteryLithiumPerKWh : prices.batteryLeadPerKWh;
   const cPanels = panelW * prices.panelPerWatt;
-  const cBattery = batteryKWh * batteryPrice;
-  const cInverter = inverterKVA * prices.inverterPerKVA;
-  const cCabling = prices.cabling;
-  const cMounting = prices.mounting;
-  const cAccessories = prices.accessories;
+  // Battery cost based on actual installed battery energy (totalBatteries × Ah × V)
+  const installedBattKWh = (totalBatteries * (cfg.individualBattAh||200) * (cfg.battVoltage||48)) / 1000;
+  const cBattery = installedBattKWh * batteryPrice;
+
+  // Inverter sizing — auto round-up calc'd kVA to nearest standard size, unless admin overrode
+  const stdSizes = (cfg.inverterStandardSizes && cfg.inverterStandardSizes.length)
+    ? cfg.inverterStandardSizes
+    : [1, 1.5, 2, 3, 5, 7.5, 10, 15, 20];
+  let selectedInverterKVA;
+  if (cfg.selectedInverterKVA && cfg.selectedInverterKVA > 0) {
+    // manual override
+    selectedInverterKVA = cfg.selectedInverterKVA;
+  } else {
+    // round up to next standard size; if calc'd > largest, return largest (engineer should split)
+    const next = stdSizes.find(s => s >= inverterKVA);
+    selectedInverterKVA = next != null ? next : stdSizes[stdSizes.length - 1];
+  }
+  // Inverter cost based on the SELECTED size (what the customer actually buys)
+  const cInverter = selectedInverterKVA * prices.inverterPerKVA;
+
+  // Balance of System — flat or scaled
+  const cCabling     = cfg.cablingMode === 'scaled'
+    ? selectedInverterKVA * (cfg.cablingPerKVA || 0)
+    : prices.cabling;
+  const cMounting    = cfg.mountingMode === 'scaled'
+    ? numPanels * (cfg.mountingPerPanel || 0)
+    : prices.mounting;
+  const cAccessories = cfg.accessoriesMode === 'scaled'
+    ? selectedInverterKVA * (cfg.accessoriesPerKVA || 0)
+    : prices.accessories;
+
   const equipTotal = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
   const cInstall = equipTotal * cfg.installPct;
   const subtotal = equipTotal + cInstall;
   const markupAmt = subtotal * markup;
   const total = subtotal + markupAmt;
 
-  const selectedInverterKVA = cfg.selectedInverterKVA || 5.0;
-  const result = { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, totalBattEnergyWh, solarPowerW, adjustedPanelW, numPanels, inverterSizeW, inverterKVA, selectedInverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
+  const result = { totalLoad, totalEnergyWh, totalEnergyKWh, adjustedEnergyWh, adjustedEnergyKWh, panelW, batteryKWh, installedBattKWh, battCapacityAh, battCapacityWh, battRuntimeHrs, totalBatteries, totalBattEnergyWh, solarPowerW, adjustedPanelW, numPanels, inverterSizeW, inverterKVA, selectedInverterKVA, deviceRows, cPanels, cBattery, cInverter, cCabling, cMounting, cAccessories, equipTotal, cInstall, markupAmt, total };
 }
 
 function recalculate() {
@@ -1347,6 +1558,12 @@ function recalculate() {
     markup: parseFloat(document.getElementById('markup')?.value)||0
   };
   const r = calcSystem(state.appliances, opts);
+
+  // Safety check — calcSystem returns null if calculateTotals fails
+  if (!r) {
+    console.error('recalculate: calcSystem returned no result');
+    return;
+  }
 
   const fmt = n => Math.round(n).toLocaleString('en-NG');
 
@@ -1368,8 +1585,6 @@ function recalculate() {
   set('calc-load',            fmt(r.totalLoad) + ' W');
   set('calc-daily',           r.totalEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.totalEnergyWh) + ' Wh)');
   set('calc-adjusted',        r.adjustedEnergyKWh.toFixed(2) + ' kWh (' + fmt(r.adjustedEnergyWh) + ' Wh)');
-  set('calc-panel',           fmt(r.panelW) + ' W');
-  set('calc-battery',         r.batteryKWh.toFixed(1) + ' kWh');
   set('calc-batt-ah',         Math.ceil(r.battCapacityAh) + ' Ah @ ' + (state.config.battVoltage||48) + 'V');
   set('calc-batt-wh',         fmt(Math.round(r.battCapacityWh)) + ' Wh (' + (r.battCapacityWh/1000).toFixed(2) + ' kWh)');
   set('calc-total-batt-energy', fmt(Math.round(r.totalBattEnergyWh)) + ' Wh (' + (r.totalBattEnergyWh/1000).toFixed(2) + ' kWh)');
@@ -1379,11 +1594,19 @@ function recalculate() {
   set('calc-batt-runtime',    Math.round(r.battRuntimeHrs).toLocaleString() + ' hrs');
   set('calc-total-batts',     r.totalBatteries > 0 ? r.totalBatteries + ' batteries (' + (state.config.individualBattAh||200) + 'Ah each)' : 'N/A — voltage mismatch');
   set('calc-inverter-w',      fmt(Math.round(r.inverterSizeW)) + ' W');
-  set('calc-inverter',        r.inverterKVA.toFixed(2) + ' kVA (calc.)');
-  set('calc-selected-inv',    (r.selectedInverterKVA||0).toFixed(1) + ' kVA (selected)');
+  set('calc-inverter',        r.inverterKVA.toFixed(2) + ' kVA @ ' + (state.config.inverterVoltage||48) + 'V');
+  set('calc-selected-inv',    (r.selectedInverterKVA||0).toFixed(1) + ' kVA @ ' + (state.config.inverterVoltage||48) + 'V');
   set('calc-equip',           '₦' + fmt(r.equipTotal));
   set('calc-install',         '₦' + fmt(r.cInstall));
   set('calc-total',           '₦' + fmt(r.total));
+
+  // Final Audit Report card
+  set('rep-inverter-calc', fmt(Math.round(r.inverterSizeW||0)) + ' W | ' + (r.inverterKVA||0).toFixed(2) + ' kVA');
+  set('rep-inverter-sel',  (r.selectedInverterKVA||0).toFixed(1) + ' kVA');
+  set('rep-battery-calc',  fmt(Math.round(r.totalBattEnergyWh||0)) + ' Wh | ' + Math.ceil(r.battCapacityAh||0) + ' Ah');
+  set('rep-battery-sel',   (r.totalBatteries||0) + ' batteries');
+  set('rep-solar-calc',    fmt(Math.round(r.solarPowerW||0)) + ' W | ' + fmt(Math.round(r.adjustedPanelW||0)) + ' W adj.');
+  set('rep-solar-sel',     (r.numPanels||0) + ' panels');
   } catch(e) { console.error('recalculate error:', e); }
 }
 
@@ -1573,89 +1796,167 @@ function downloadPDF() {
   if (!window._currentQuote) return;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const PAGE_H = 297, PAGE_W = 210, MARGIN = 14, CONTENT_W = 182;
   const co = state.company;
-  const q = window._currentQuote;
-  const audit = state.audits.find(a=>a.id===q.auditId) || {};
+  const q  = window._currentQuote;
+  const audit = state.audits.find(a => a.id === q.auditId) || {};
   const r = audit.result || {};
-  const fmt = n => Math.round(n||0).toLocaleString('en-NG');
-  let y = 20;
+  const fmt = n => Math.round(n || 0).toLocaleString('en-NG');
+  const ORANGE = [249, 115, 22];
+  const FOOTER_H = 14; // reserve space at bottom for footer
 
-  doc.setFillColor(249,115,22);
-  doc.rect(0,0,210,18,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(14); doc.setFont('helvetica','bold');
-  doc.text('⚡ ' + co.name, 14, 12);
-  doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text(co.phone + ' · ' + co.email, 14, 16.5);
-  doc.text('QUOTATION  ' + q.id, 196, 12, {align:'right'});
-  doc.text(new Date(q.createdAt).toLocaleDateString(), 196, 16.5, {align:'right'});
+  let y = 0;
+  let page = 1;
+
+  // ── Helper: new page if not enough room ──────────────────────
+  function checkPage(needed) {
+    if (y + needed > PAGE_H - FOOTER_H) {
+      addFooter();
+      doc.addPage();
+      page++;
+      y = 14;
+    }
+  }
+
+  // ── Footer ────────────────────────────────────────────────────
+  function addFooter() {
+    const fy = PAGE_H - 10;
+    doc.setFontSize(7); doc.setTextColor(150, 150, 150); doc.setFont('helvetica', 'normal');
+    doc.text((co.name || '') + ' · ' + (co.address || '') + ' · ' + (co.web || ''), 105, fy - 4, { align: 'center' });
+    doc.text('Quote valid for 30 days from issue date. Prices subject to component availability.', 105, fy, { align: 'center' });
+  }
+
+  // ── Section header ─────────────────────────────────────────────
+  function sectionHeader(label, rightLabel) {
+    checkPage(12);
+    doc.setFillColor(...ORANGE);
+    doc.rect(MARGIN, y, CONTENT_W, 7, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+    doc.text(label, MARGIN + 2, y + 4.5);
+    if (rightLabel) doc.text(rightLabel, MARGIN + CONTENT_W - 2, y + 4.5, { align: 'right' });
+    y += 10;
+  }
+
+  // ── Table row ──────────────────────────────────────────────────
+  function tableRow(label, value, idx, rowH) {
+    const h = rowH || 6;
+    checkPage(h);
+    if (idx % 2 === 0) doc.setFillColor(250, 250, 250); else doc.setFillColor(255, 255, 255);
+    doc.rect(MARGIN, y, CONTENT_W, h, 'F');
+    doc.setTextColor(30, 30, 30); doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal'); doc.text(label, MARGIN + 2, y + 4);
+    doc.setFont('helvetica', 'bold');   doc.text(value, MARGIN + CONTENT_W - 2, y + 4, { align: 'right' });
+    y += h;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // PAGE HEADER
+  // ════════════════════════════════════════════════════════════════
+  doc.setFillColor(...ORANGE);
+  doc.rect(0, 0, PAGE_W, 18, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+  doc.text('SolarIQ - ' + (co.name || ''), MARGIN, 12);   // no emoji — jsPDF can't render
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text((co.phone || '') + '  |  ' + (co.email || ''), MARGIN, 16.5);
+  doc.text('QUOTATION  ' + q.id, PAGE_W - MARGIN, 12, { align: 'right' });
+  doc.text(new Date(q.createdAt).toLocaleDateString('en-NG'), PAGE_W - MARGIN, 16.5, { align: 'right' });
   y = 28;
 
-  doc.setTextColor(30,30,30);
-  doc.setFontSize(11); doc.setFont('helvetica','bold');
-  doc.text('Prepared For', 14, y);
-  doc.setFontSize(14); doc.text(q.clientName, 14, y+6);
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.setTextColor(100,100,100);
-  doc.text((audit.clientPhone||'') + ' · ' + (audit.location||'') + ' · ' + (audit.propertyType||''), 14, y+12);
+  // ── Client block ────────────────────────────────────────────────
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('Prepared For', MARGIN, y);
+  doc.setFontSize(13); doc.text(q.clientName || '', MARGIN, y + 6);
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 100, 100);
+  const clientLine = [audit.clientPhone, audit.location, audit.propertyType].filter(Boolean).join('  ·  ');
+  doc.text(clientLine, MARGIN, y + 12);
   y += 22;
 
-  doc.setFillColor(249,115,22);
-  doc.rect(14, y, 182, 7, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(8); doc.setFont('helvetica','bold');
-  doc.text('SYSTEM SPECIFICATION', 16, y+4.5);
-  y += 10;
+  // ════════════════════════════════════════════════════════════════
+  // FINAL AUDIT REPORT (3-pair summary)
+  // ════════════════════════════════════════════════════════════════
+  sectionHeader('FINAL AUDIT REPORT', 'Selected / Qty');
+
+  // Sub-header row
+  doc.setFillColor(...ORANGE); doc.setGState && doc.setGState(doc.GState ? new doc.GState({opacity:0.15}) : undefined);
+  doc.setFillColor(255, 237, 213);
+  doc.rect(MARGIN, y, CONTENT_W, 5.5, 'F');
+  doc.setTextColor(100, 100, 100); doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+  doc.text('Parameter', MARGIN + 2, y + 3.5);
+  doc.text('Calculated', MARGIN + 105, y + 3.5, { align: 'center' });
+  doc.text('Selected', MARGIN + CONTENT_W - 2, y + 3.5, { align: 'right' });
+  y += 6.5;
+
+  const auditRows = [
+    ['Load / Inverter', fmt(Math.round(r.inverterSizeW||0)) + ' W  |  ' + (r.inverterKVA||0).toFixed(2) + ' kVA', (r.selectedInverterKVA||0).toFixed(1) + ' kVA'],
+    ['Storage / Batteries', fmt(Math.round(r.totalBattEnergyWh||0)) + ' Wh  |  ' + Math.ceil(r.battCapacityAh||0) + ' Ah', (r.totalBatteries||0) + ' batteries'],
+    ['Solar / Panels', fmt(Math.round(r.solarPowerW||0)) + ' W  |  ' + fmt(Math.round(r.adjustedPanelW||0)) + ' W adj.', (r.numPanels||0) + ' panels'],
+  ];
+  auditRows.forEach(([param, calc, sel], i) => {
+    const h = 8;
+    checkPage(h);
+    if (i % 2 === 0) doc.setFillColor(255, 251, 245); else doc.setFillColor(255, 255, 255);
+    doc.rect(MARGIN, y, CONTENT_W, h, 'F');
+    doc.setTextColor(30, 30, 30); doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');   doc.text(param, MARGIN + 2, y + 5.5);
+    doc.setFont('helvetica', 'normal'); doc.text(calc,  MARGIN + 105, y + 5.5, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...ORANGE);        doc.text(sel,   MARGIN + CONTENT_W - 2, y + 5.5, { align: 'right' });
+    y += h;
+  });
+  y += 6;
+
+  // ════════════════════════════════════════════════════════════════
+  // SYSTEM SPECIFICATION
+  // ════════════════════════════════════════════════════════════════
+  sectionHeader('SYSTEM SPECIFICATION');
 
   const specs = [
-    ['Total Load', fmt(r.totalLoad||0)+' W'],
-    ['Total Energy Demanded', fmt(r.totalEnergyWh||0)+' Wh / '+(r.totalEnergyKWh||0).toFixed(2)+' kWh'],
-    ['Solar Panels', fmt(r.panelW||0)+' W'],
-    ['Battery Bank', (r.batteryKWh||0).toFixed(1)+' kWh ('+((audit.batteryType||'lithium')==='lithium'?'Lithium':'Lead-Acid')+')'],
-    ['Inverter', (r.inverterKVA||0).toFixed(1)+' kVA'],
-    ['Days of Autonomy', (state.config.daysOfAutonomy||1)+' day(s)'],
+    ['Total Load',              fmt(r.totalLoad || 0) + ' W'],
+    ['Total Energy Demand',     fmt(r.totalEnergyWh || 0) + ' Wh  /  ' + (r.totalEnergyKWh || 0).toFixed(2) + ' kWh'],
+    ['Adjusted Energy (+20%)',  fmt(r.adjustedEnergyWh || 0) + ' Wh  /  ' + (r.adjustedEnergyKWh || 0).toFixed(2) + ' kWh'],
+    ['Inverter Size (calc.)',   (r.inverterKVA || 0).toFixed(2) + ' kVA'],
+    ['Inverter Selected',       (r.selectedInverterKVA || 0).toFixed(1) + ' kVA'],
+    ['Solar Panels',            fmt(r.panelW || 0) + ' W  (' + (r.numPanels || 0) + ' x ' + (state.config.individualPanelW || 400) + 'W)'],
+    ['Battery Bank (calc.)',    Math.ceil(r.battCapacityAh || 0) + ' Ah  /  ' + fmt(r.battCapacityWh || 0) + ' Wh'],
+    ['Batteries Installed',     (r.totalBatteries || 0) + ' x ' + (state.config.individualBattAh || 200) + 'Ah @ ' + (state.config.battVoltage || 48) + 'V  (' + (audit.batteryType || 'lithium') + ')'],
+    ['Days of Autonomy',        (state.config.daysOfAutonomy || 1) + ' day(s)'],
   ];
-  doc.setTextColor(30,30,30); doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  specs.forEach(([l,v],i) => {
-    if(i%2===0)doc.setFillColor(250,250,250); else doc.setFillColor(255,255,255);
-    doc.rect(14,y,182,6,'F');
-    doc.text(l, 16, y+4); doc.setFont('helvetica','bold'); doc.text(v, 196, y+4,{align:'right'}); doc.setFont('helvetica','normal');
-    y+=6;
-  });
-  y+=6;
+  specs.forEach(([l, v], i) => tableRow(l, v, i));
+  y += 6;
 
-  doc.setFillColor(249,115,22);
-  doc.rect(14,y,182,7,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-  doc.text('COST BREAKDOWN', 16, y+4.5);
-  doc.text('Amount (₦)', 196, y+4.5,{align:'right'}); y+=10;
+  // ════════════════════════════════════════════════════════════════
+  // COST BREAKDOWN
+  // ════════════════════════════════════════════════════════════════
+  sectionHeader('COST BREAKDOWN', 'Amount (N)');
 
   const items = [
-    ['Solar Panels', r.cPanels],['Battery Bank', r.cBattery],['Inverter/Charger', r.cInverter],
-    ['Cabling & Wiring', r.cCabling],['Mounting Structure', r.cMounting],
-    ['Accessories', r.cAccessories],['Installation & Labour', r.cInstall],
+    ['Solar Panels',        r.cPanels],
+    ['Battery Bank',        r.cBattery],
+    ['Inverter / Charger',  r.cInverter],
+    ['Cabling & Wiring',    r.cCabling],
+    ['Mounting Structure',  r.cMounting],
+    ['Accessories',         r.cAccessories],
+    ['Installation & Labour', r.cInstall],
   ];
-  doc.setTextColor(30,30,30); doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  items.forEach(([l,v],i) => {
-    if(i%2===0)doc.setFillColor(250,250,250); else doc.setFillColor(255,255,255);
-    doc.rect(14,y,182,6,'F');
-    doc.text(l,16,y+4); doc.text('₦'+fmt(v||0),196,y+4,{align:'right'}); y+=6;
-  });
-  y+=6;
+  items.forEach(([l, v], i) => tableRow(l, 'N ' + fmt(v || 0), i));
+  y += 6;
 
-  doc.setFillColor(255,247,237);
-  doc.rect(14,y,182,22,'F');
-  doc.setDrawColor(249,115,22); doc.rect(14,y,182,22);
-  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(249,115,22);
-  doc.text('TOTAL INVESTMENT', 16, y+8);
-  doc.setFontSize(14); doc.text('₦'+fmt(r.total||0), 196, y+15,{align:'right'});
-  y+=30;
+  // ── Total box ────────────────────────────────────────────────
+  checkPage(26);
+  doc.setFillColor(255, 247, 237);
+  doc.rect(MARGIN, y, CONTENT_W, 22, 'F');
+  doc.setDrawColor(...ORANGE); doc.setLineWidth(0.5);
+  doc.rect(MARGIN, y, CONTENT_W, 22);
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(...ORANGE);
+  doc.text('TOTAL INVESTMENT', MARGIN + 4, y + 9);
+  doc.setFontSize(15); doc.text('N ' + fmt(r.total || 0), MARGIN + CONTENT_W - 2, y + 15, { align: 'right' });
+  y += 28;
 
-  doc.setFontSize(7); doc.setTextColor(150,150,150); doc.setFont('helvetica','normal');
-  doc.text(co.name+' · '+co.address+' · '+co.web, 105, y, {align:'center'});
-  doc.text('Quote valid for 30 days from issue date. Prices subject to component availability.', 105, y+5, {align:'center'});
+  // ── Footer on last page ─────────────────────────────────────
+  addFooter();
 
-  doc.save('Quote-'+q.id+'-'+q.clientName.replace(/\s+/g,'_')+'.pdf');
+  doc.save('Quote-' + q.id + '-' + (q.clientName || 'Client').replace(/\s+/g, '_') + '.pdf');
 }
 
 // ============================================================
@@ -1719,7 +2020,6 @@ function openAuditModal(id) {
         <div class="breakdown-item"><div class="breakdown-label">Phone</div><div style="color:var(--text)">${audit.clientPhone||'—'}</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Location</div><div style="color:var(--text)">${audit.location}</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Grid Hours</div><div style="color:var(--text)">${audit.gridHours}h/day</div></div>
-        <div class="breakdown-item"><div class="breakdown-label">Usage Hours</div><div style="color:var(--text)">${audit.usageHours}h/day</div></div>
         <div class="breakdown-item"><div class="breakdown-label">Battery Type</div><div style="color:var(--text)">${audit.batteryType}</div></div>
       </div>
       <div>
@@ -1744,6 +2044,34 @@ function openAuditModal(id) {
     <div class="breakdown-total" style="margin-top:16px">
       <div class="breakdown-total-label">Total Quote Value</div>
       <div class="breakdown-total-val">₦${fmt(r.total)}</div>
+    </div>
+    <div style="margin-top:24px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <span style="display:inline-block;width:6px;height:18px;background:var(--accent);border-radius:2px"></span>
+        Final Audit Report
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;border-radius:8px;overflow:hidden">
+        <tr style="background:var(--accent)">
+          <th style="padding:10px 14px;color:white;text-align:left;font-weight:700">Parameter</th>
+          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700">Calculated</th>
+          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700">Selected / Qty</th>
+        </tr>
+        <tr style="background:#fff7ed">
+          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #fed7aa">⚡ System Load / Inverter Size</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;color:#374151">${fmt(Math.round(r.inverterSizeW||0))} W &nbsp;|&nbsp; ${(r.inverterKVA||0).toFixed(2)} kVA</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;font-weight:700;color:var(--accent);font-size:16px">${(r.selectedInverterKVA||0).toFixed(1)} kVA</td>
+        </tr>
+        <tr style="background:#fff">
+          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #fed7aa">🔋 Energy Storage / No. of Batteries</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;color:#374151">${fmt(Math.round(r.totalBattEnergyWh||0))} Wh &nbsp;|&nbsp; ${Math.ceil(r.battCapacityAh||0)} Ah</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;font-weight:700;color:var(--accent);font-size:16px">${r.totalBatteries||0} batteries</td>
+        </tr>
+        <tr style="background:#fff7ed">
+          <td style="padding:12px 14px;font-weight:700;color:#111">☀️ Peak Solar Power / No. of Panels</td>
+          <td style="padding:12px 14px;text-align:center;color:#374151">${fmt(Math.round(r.solarPowerW||0))} W &nbsp;|&nbsp; ${fmt(Math.round(r.adjustedPanelW||0))} W adj.</td>
+          <td style="padding:12px 14px;text-align:center;font-weight:700;color:var(--accent);font-size:16px">${r.numPanels||0} panels</td>
+        </tr>
+      </table>
     </div>
   `;
   document.getElementById('audit-modal').classList.add('open');
@@ -1860,9 +2188,17 @@ function populateSettingsForm() {
   document.getElementById('cfg-panel-w').value = cfg.individualPanelW||400;
   document.getElementById('cfg-energy-used-pct').value = (cfg.energyUsedPct||0.90)*100;
   document.getElementById('cfg-inv-eff').value = cfg.inverterEfficiency||1.25;
-  document.getElementById('cfg-selected-inv-kva').value = cfg.selectedInverterKVA||5.0;
+  document.getElementById('cfg-selected-inv-kva').value = cfg.selectedInverterKVA||0;
+  document.getElementById('cfg-inv-std-sizes').value = (cfg.inverterStandardSizes || [1,1.5,2,3,5,7.5,10,15,20]).join(', ');
   document.getElementById('cfg-inv-voltage').value = cfg.inverterVoltage||48;
   document.getElementById('cfg-days-autonomy').value = cfg.daysOfAutonomy||1;
+  // Balance of System pricing modes
+  document.getElementById('cfg-cabling-mode').value = cfg.cablingMode||'flat';
+  document.getElementById('cfg-cabling-per-kva').value = cfg.cablingPerKVA||15000;
+  document.getElementById('cfg-mounting-mode').value = cfg.mountingMode||'flat';
+  document.getElementById('cfg-mounting-per-panel').value = cfg.mountingPerPanel||8000;
+  document.getElementById('cfg-accessories-mode').value = cfg.accessoriesMode||'flat';
+  document.getElementById('cfg-accessories-per-kva').value = cfg.accessoriesPerKVA||8000;
 }
 
 function saveSettings() {
@@ -1885,9 +2221,18 @@ function saveSettings() {
     individualPanelW: parseFloat(document.getElementById('cfg-panel-w').value)||400,
     energyUsedPct: (parseFloat(document.getElementById('cfg-energy-used-pct').value)||90) / 100,
     inverterEfficiency: parseFloat(document.getElementById('cfg-inv-eff').value)||1.25,
-    selectedInverterKVA: parseFloat(document.getElementById('cfg-selected-inv-kva').value)||5.0,
+    selectedInverterKVA: parseFloat(document.getElementById('cfg-selected-inv-kva').value)||0,
+    inverterStandardSizes: (document.getElementById('cfg-inv-std-sizes').value||'')
+      .split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0)
+      .sort((a,b) => a - b),
     inverterVoltage: parseFloat(document.getElementById('cfg-inv-voltage').value)||48,
     daysOfAutonomy: parseFloat(document.getElementById('cfg-days-autonomy').value)||1,
+    cablingMode: document.getElementById('cfg-cabling-mode').value||'flat',
+    cablingPerKVA: parseFloat(document.getElementById('cfg-cabling-per-kva').value)||15000,
+    mountingMode: document.getElementById('cfg-mounting-mode').value||'flat',
+    mountingPerPanel: parseFloat(document.getElementById('cfg-mounting-per-panel').value)||8000,
+    accessoriesMode: document.getElementById('cfg-accessories-mode').value||'flat',
+    accessoriesPerKVA: parseFloat(document.getElementById('cfg-accessories-per-kva').value)||8000,
   };
   saveToStorage();
   if (window.cloudSaveSettings) window.cloudSaveSettings(state.config, state.company, state.prices);
@@ -1932,16 +2277,44 @@ function updateDashboard() {
   if (!n) {
     recent.innerHTML = `<div class="empty-state" style="padding:30px 0"><div class="empty-icon">📋</div><div class="empty-title">No audits yet</div><div class="empty-sub">Start a new audit to see it here</div></div>`;
   } else {
-    recent.innerHTML = state.audits.slice(0,4).map(a=>`
-      <div class="audit-item" onclick="openAuditModal('${a.id}')" style="padding:12px">
-        <div class="audit-icon" style="width:32px;height:32px;font-size:14px">🏠</div>
-        <div class="audit-meta">
-          <div class="audit-title" style="font-size:13px">${a.clientName}</div>
-          <div class="audit-sub">${a.propertyType} · ₦${fmt(a.result.total)}</div>
-        </div>
-      </div>
-    `).join('');
+    recent.innerHTML = state.audits.slice(0,5).map(a => {
+      const staffTag = (a._ownerName || a.createdBy?.name)
+        ? `<span style="font-size:10px;background:rgba(249,115,22,.12);color:var(--accent);padding:2px 7px;border-radius:20px;margin-left:6px">${a._ownerName || a.createdBy?.name}</span>` : '';
+      return `
+        <div class="audit-item" onclick="openAuditModal('${a.id}')" style="padding:12px">
+          <div class="audit-icon" style="width:32px;height:32px;font-size:14px">🏠</div>
+          <div class="audit-meta">
+            <div class="audit-title" style="font-size:13px">${a.clientName}${staffTag}</div>
+            <div class="audit-sub">${a.propertyType} · ₦${fmt(a.result?.total||0)}</div>
+          </div>
+        </div>`;
+    }).join('');
   }
+}
+
+function populateAdminAudits() {
+  const el = document.getElementById('admin-all-audits');
+  if (!el) return;
+  const fmt = n => Math.round(n||0).toLocaleString('en-NG');
+  if (!state.audits.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-title">No audits found</div></div>';
+    return;
+  }
+  el.innerHTML = state.audits.map(a => {
+    const staffName = a._ownerName || a.createdBy?.name || 'Unknown';
+    const date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-NG') : '—';
+    return `
+      <div class="audit-item" onclick="openAuditModal('${a.id}')" style="cursor:pointer">
+        <div class="audit-icon">🏠</div>
+        <div class="audit-meta">
+          <div class="audit-title">${a.clientName || '—'}
+            <span style="font-size:10px;background:rgba(249,115,22,.12);color:var(--accent);padding:2px 7px;border-radius:20px;margin-left:6px">${staffName}</span>
+          </div>
+          <div class="audit-sub">${a.propertyType||''} · ${a.location||''} · ${date}</div>
+        </div>
+        <span class="badge badge-orange">₦${fmt(a.result?.total)}</span>
+      </div>`;
+  }).join('');
 }
 
 function updateBadges() {
@@ -1965,125 +2338,9 @@ setTimeout(() => { if (!window._fbLoaded) init(); }, 2000);
 // ============================================================
 // DOM READY HOOK — Ensure calculations run on page load
 // ============================================================
+// calculateSystem is a legacy alias — all logic now lives in recalculate()
 function calculateSystem() {
-  const cfg = state.config || {};
-  const fmt = n => Math.round(n).toLocaleString('en-NG');
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-
-  // ─── 1. Sum loads + energy from appliances ───
-  let totalLoad = 0, totalEnergy = 0;
-  DEFAULT_APPLIANCES.forEach(app => {
-    const item = state.appliances[app.id];
-    if (!item) return;
-    const load = app.watts * (item.qty || 0);
-    const energy = load * (item.hours || 0);
-    totalLoad += load;
-    totalEnergy += energy;
-    const dloadEl = document.getElementById('dload-' + app.id);
-    const denergyEl = document.getElementById('denergy-' + app.id);
-    if (dloadEl) dloadEl.textContent = load + ' W';
-    if (denergyEl) denergyEl.textContent = energy + ' Wh';
-  });
-
-  // ─── 2. Adjusted with 20% loss ───
-  const adjustedWh = totalEnergy * 1.20;
-  const adjustedKWh = adjustedWh / 1000;
-
-  // ─── 3. Battery chain ───
-  const battVoltage = cfg.battVoltage || 48;
-  const battDod = cfg.battDod || 0.80;
-  const battEff = cfg.battEfficiency || 0.95;
-  const indivBattAh = cfg.individualBattAh || 200;
-  const daysAuto = cfg.daysOfAutonomy || 1;
-  const battType = document.getElementById('battery-type')?.value || 'lithium';
-  const dod = battType === 'lithium' ? (cfg.dodLithium || 1.25) : (cfg.dodLead || 2.0);
-
-  const battCapAh = adjustedWh / (battVoltage * battDod * battEff);
-  const battCapWh = battCapAh * battVoltage;
-  const batteryKWh = Math.ceil(adjustedKWh * daysAuto * dod * 10) / 10;
-  const totalBattEnergyWh = battCapAh * battVoltage * daysAuto;
-  const battRuntimeHrs = daysAuto * 24;
-
-  // Total batteries based on voltage matching
-  const rawBatteries = Math.ceil(battCapAh / indivBattAh);
-  const iVolt = cfg.inverterVoltage || 48;
-  let totalBatteries = 0;
-  if (battType === 'lead') {
-    if (battVoltage === 12 && iVolt === 12) totalBatteries = rawBatteries;
-    else if (battVoltage === 12 && iVolt === 24) totalBatteries = Math.ceil(rawBatteries / 2) * 2;
-    else if (battVoltage === 12 && iVolt === 48) totalBatteries = Math.ceil(rawBatteries / 4) * 4;
-  } else {
-    if (battVoltage === iVolt) totalBatteries = rawBatteries;
-  }
-
-  // ─── 4. Solar panels ───
-  const sunHours = cfg.sunHours || 4.5;
-  const energyUsedPct = cfg.energyUsedPct || 0.90;
-  const indivPanelW = cfg.individualPanelW || 400;
-  const solarPowerW = totalBattEnergyWh / sunHours;
-  const adjustedPanelW = (solarPowerW * energyUsedPct) + solarPowerW;
-  const numPanels = Math.ceil(adjustedPanelW / (indivPanelW * 0.7));
-
-  // ─── 5. Inverter ───
-  const invEff = cfg.inverterEfficiency || 1.25;
-  const inverterSizeW = totalLoad * invEff;
-  const inverterKVA = inverterSizeW / 0.8 / 1000;
-  const selectedInverterKVA = cfg.selectedInverterKVA || 5.0;
-
-  // ─── 6. Cost ───
-  const prices = state.prices?.user || {};
-  const markup = (parseFloat(document.getElementById('markup')?.value) || 0) / 100;
-
-  // Panels: price per watt × total wattage
-  const totalPanelW = numPanels * indivPanelW;
-  const cPanels = totalPanelW * (prices.panelPerWatt || 0);
-
-  // Batteries: price per kWh × total battery kWh
-  const battPricePerKWh = battType === 'lithium'
-    ? (prices.batteryLithiumPerKWh || 0)
-    : (prices.batteryLeadPerKWh || 0);
-  const totalBattKWh = (totalBatteries * indivBattAh * battVoltage) / 1000;
-  const cBattery = totalBattKWh * battPricePerKWh;
-
-  // Inverter: price per kVA × selected kVA
-  const cInverter = selectedInverterKVA * (prices.inverterPerKVA || 0);
-
-  const cCabling = (prices.cabling || 0);
-  const cMounting = (prices.mounting || 0);
-  const cAccessories = (prices.accessories || 0);
-
-  const equipTotal = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
-  const cInstall = equipTotal * (cfg.installPct || 0.12);
-  const subtotal = equipTotal + cInstall;
-  const total = subtotal * (1 + markup);
-
-  // ─── 7. Write everything to DOM ───
-  // Tfoot
-  set('tfoot-load',     fmt(totalLoad) + ' W');
-  set('tfoot-energy',   fmt(totalEnergy) + ' Wh');
-  set('tfoot-adjusted', fmt(adjustedWh) + ' Wh  /  ' + adjustedKWh.toFixed(2) + ' kWh');
-  set('total-load-badge', fmt(totalLoad) + 'W load · ' + adjustedKWh.toFixed(2) + ' kWh adjusted');
-
-  // Calc panel
-  set('calc-load',     fmt(totalLoad) + ' W');
-  set('calc-daily',    (totalEnergy/1000).toFixed(2) + ' kWh (' + fmt(totalEnergy) + ' Wh)');
-  set('calc-adjusted', adjustedKWh.toFixed(2) + ' kWh (' + fmt(adjustedWh) + ' Wh)');
-  set('calc-panel',    fmt(Math.ceil((adjustedKWh / sunHours) * 1000 / 50) * 50) + ' W');
-  set('calc-battery',  batteryKWh.toFixed(1) + ' kWh');
-  set('calc-batt-ah',  Math.ceil(battCapAh) + ' Ah @ ' + battVoltage + 'V');
-  set('calc-batt-wh',  fmt(battCapWh) + ' Wh (' + (battCapWh/1000).toFixed(2) + ' kWh)');
-  set('calc-total-batt-energy', fmt(totalBattEnergyWh) + ' Wh (' + (totalBattEnergyWh/1000).toFixed(2) + ' kWh)');
-  set('calc-solar-power', fmt(solarPowerW) + ' W (' + (solarPowerW/1000).toFixed(2) + ' kW)');
-  set('calc-adj-panel',   fmt(adjustedPanelW) + ' W (' + (adjustedPanelW/1000).toFixed(2) + ' kW)');
-  set('calc-num-panels',  numPanels + ' panels (' + indivPanelW + 'W each)');
-  set('calc-batt-runtime', battRuntimeHrs + ' hrs');
-  set('calc-total-batts', totalBatteries > 0 ? totalBatteries + ' batteries (' + indivBattAh + 'Ah each)' : 'N/A — voltage mismatch');
-  set('calc-inverter-w',  fmt(inverterSizeW) + ' W');
-  set('calc-inverter',    inverterKVA.toFixed(2) + ' kVA (calc.)');
-  set('calc-selected-inv', selectedInverterKVA.toFixed(1) + ' kVA (selected)');
-  set('calc-equip',       '₦' + fmt(equipTotal));
-  set('calc-install',     '₦' + fmt(cInstall));
-  set('calc-total',       '₦' + fmt(total));
+  recalculate();
 }
 
 function renderAppliances() {

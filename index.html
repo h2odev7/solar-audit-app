@@ -55,25 +55,25 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface4); border-radius: 4px; }
 .app { display: flex; height: 100vh; }
-.sidebar { width: 72px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; position: relative; z-index: 10; }
+.sidebar { width: 180px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: relative; z-index: 10; }
 .sidebar::after { content: ''; position: absolute; top: 0; right: -1px; width: 1px; height: 100%; background: linear-gradient(to bottom, transparent, rgba(249,115,22,0.2), transparent); }
 .main { flex: 1; overflow-y: auto; background: var(--bg); display: flex; justify-content: center; }
-.logo { padding: 20px 0 18px; border-bottom: 1px solid var(--border); width: 100%; display: flex; justify-content: center; }
-.logo-mark { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #ea580c); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: var(--glow-sm); }
-.logo-text { display: none; }
-.logo-sub { display: none; }
-.nav { flex: 1; padding: 12px 6px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+.logo { padding: 22px 18px 20px; border-bottom: 1px solid var(--border); }
+.logo-mark { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), #ea580c); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: var(--glow-sm); flex-shrink: 0; }
+.logo-text { font-family: var(--font-display); font-weight: 800; font-size: 16px; letter-spacing: -.02em; color: var(--text); line-height: 1.1; }
+.logo-sub { font-size: 9px; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+.nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
 .nav-section { font-size: 9.5px; color: var(--text3); letter-spacing: .12em; text-transform: uppercase; font-weight: 600; padding: 0 10px; margin: 18px 0 6px; }
 .nav-section:first-child { margin-top: 4px; }
-.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 10px; font-weight: 600; color: var(--text2); transition: all .18s; margin-bottom: 3px; border: none; background: none; width: 56px; text-align: center; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .18s; margin-bottom: 3px; border: none; background: none; width: 100%; text-align: left; }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--surface2); color: var(--text); }
 .nav-icon-box { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform .18s, box-shadow .18s; }
 .nav-item:hover .nav-icon-box { transform: scale(1.07); }
 .nav-item.active .nav-icon-box { box-shadow: 0 4px 14px rgba(249,115,22,0.35); }
 .nav-badge { margin-left: auto; background: var(--accent); color: #08090c; font-size: 9.5px; font-weight: 800; border-radius: 20px; padding: 1px 7px; box-shadow: 0 0 8px rgba(245,200,66,.4); }
-.sidebar-footer { padding: 14px 6px; border-top: 1px solid var(--border); display: flex; justify-content: center; }
+.sidebar-footer { display: none; }
 .user-chip { display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); width: 44px; height: 44px; }
 .user-avatar { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #c49a10); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #08090c; flex-shrink: 0; }
 .user-info { flex: 1; min-width: 0; }
@@ -234,10 +234,40 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .mini-bar-track { flex: 1; height: 6px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
 .mini-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width .5s; }
 .mini-bar-val { font-size: 11.5px; color: var(--text3); width: 60px; text-align: right; flex-shrink: 0; }
+/* CUSTOM APPLIANCE */
+.custom-appl-form { background: var(--surface2); border: 1px solid var(--border3); border-radius: var(--radius-sm); padding: 14px 16px; margin-top: 12px; display: none; }
+.custom-appl-form.open { display: block; }
+.custom-appl-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+.custom-appl-input { width: 100%; padding: 7px 10px; background: var(--surface3); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-family: var(--font-body); font-size: 13px; outline: none; }
+.custom-appl-input:focus { border-color: var(--accent); }
+.custom-appl-input::placeholder { color: var(--text3); }
+.custom-appl-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 4px; }
+.btn-add-custom { background: var(--accent); color: #08090c; border: none; border-radius: 6px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.btn-add-custom:hover { opacity: .85; }
+.custom-row-del { width: 24px; height: 24px; border-radius: 5px; background: rgba(240,69,69,.15); border: 1px solid rgba(240,69,69,.2); color: var(--red); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
+.custom-row-del:hover { background: var(--red); color: white; }
+/* TIERED QUOTES */
+.tier-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 20px; }
+.tier-card { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; position: relative; }
+.tier-card.tier-best { border-color: var(--accent); box-shadow: 0 0 30px rgba(249,115,22,0.12); }
+.tier-badge { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; padding: 3px 10px; border-radius: 20px; }
+.tier-header { padding: 20px 22px 16px; }
+.tier-name { font-family: var(--font-display); font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.tier-tagline { font-size: 12px; color: var(--text2); }
+.tier-price { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--accent); margin: 14px 0 4px; }
+.tier-price-sub { font-size: 11px; color: var(--text3); }
+.tier-specs { padding: 16px 22px; border-top: 1px solid var(--border); }
+.tier-spec-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.tier-spec-row:last-child { border-bottom: none; }
+.tier-spec-label { color: var(--text2); }
+.tier-spec-val { font-weight: 600; color: var(--text); }
+.tier-footer { padding: 14px 22px; }
+.tier-recommended { position: absolute; top: 12px; right: 12px; background: var(--accent); color: #08090c; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; padding: 3px 8px; border-radius: 20px; }
 @media(max-width:900px){
-  .sidebar { width: 60px; overflow: hidden; }
-  .logo-text,.logo-sub,.nav-section,.nav-item span,.nav-badge,.user-info,.user-name,.user-role { display: none; }
-  .nav-item { justify-content: center; padding: 12px; }
+  .sidebar { width: 56px; overflow: hidden; }
+  .logo-text-wrap,.logo-text,.logo-sub,.nav-section,.nav-badge,.user-info,.user-name,.user-role { display: none; }
+  .logo { padding: 14px 0; justify-content: center; }
+  .nav-item { justify-content: center; padding: 10px; }
   .page { padding: 20px 16px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .quick-actions { grid-template-columns: repeat(3, 1fr); }
@@ -254,9 +284,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   <div class="logo">
     <div class="logo-mark">
       <div class="logo-icon">⚡</div>
-      <div>
+      <div class="logo-text-wrap">
         <div class="logo-text">SolarIQ</div>
-        <div class="logo-sub">Audit System</div>
+        <div class="logo-sub">Energy Audit</div>
       </div>
     </div>
   </div>
@@ -268,15 +298,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <span>Dashboard</span>
     </button>
   </nav>
-  <div class="sidebar-footer">
-    <div class="user-chip">
-      <div class="user-avatar">S</div>
-      <div class="user-info">
-        <div class="user-name">SolarIQ</div>
-        <div class="user-role">Energy Audit</div>
-      </div>
-    </div>
-  </div>
 </aside>
 
 <!-- MAIN -->
@@ -428,6 +449,38 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="card" style="margin-bottom:20px">
         <div class="card-title">Appliance Load <span class="badge" id="total-load-badge">0W · 0 Wh</span></div>
         <div id="appliance-grid"></div>
+        <!-- CUSTOM DEVICE FORM -->
+        <div style="margin-top:10px">
+          <button onclick="toggleCustomForm()" style="background:none;border:1px dashed var(--border3);color:var(--accent);border-radius:var(--radius-sm);padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;" id="btn-toggle-custom">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Custom Device
+          </button>
+          <div class="custom-appl-form" id="custom-appl-form">
+            <div class="custom-appl-row" style="margin-bottom:10px">
+              <div>
+                <div class="custom-appl-label">Device Name</div>
+                <input class="custom-appl-input" id="ca-name" placeholder="e.g. Water Heater">
+              </div>
+              <div>
+                <div class="custom-appl-label">Watts (W)</div>
+                <input class="custom-appl-input" id="ca-watts" type="number" placeholder="1500" min="1">
+              </div>
+              <div>
+                <div class="custom-appl-label">Quantity</div>
+                <input class="custom-appl-input" id="ca-qty" type="number" placeholder="1" min="1" value="1">
+              </div>
+              <div>
+                <div class="custom-appl-label">Hrs/day</div>
+                <input class="custom-appl-input" id="ca-hours" type="number" placeholder="4" min="0" max="24" value="4">
+              </div>
+              <div style="display:flex;align-items:flex-end">
+                <button class="btn-add-custom" onclick="addCustomAppliance()">Add</button>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--text3)">Custom devices are added to the load calculation alongside the standard list.</div>
+          </div>
+          <div id="custom-appliance-list" style="margin-top:8px"></div>
+        </div>
       </div>
 
       <!-- SYSTEM PARAMS -->
@@ -547,6 +600,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <button class="btn btn-primary" style="flex:1" onclick="saveAudit()">💾 Save Audit</button>
           <button class="btn btn-green" style="flex:1" onclick="generateQuote()">📄 Generate Quote</button>
         </div>
+        <button class="btn btn-secondary" style="width:100%;margin-top:8px;border-color:var(--accent);color:var(--accent)" onclick="generateTieredQuote()">⚡ Good / Better / Best Quotes</button>
       </div>
 
       <!-- FINAL AUDIT REPORT CARD -->
@@ -838,6 +892,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
+<!-- TIERED QUOTE MODAL -->
+<div class="modal-overlay" id="tiered-modal">
+  <div class="modal" style="width:900px;max-width:97vw;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div>
+        <div class="modal-title" style="margin-bottom:2px">Good · Better · Best</div>
+        <div style="font-size:12.5px;color:var(--text2)">Three system options tailored to your client's needs and budget</div>
+      </div>
+      <button class="btn btn-ghost" onclick="closeModal('tiered-modal')">✕</button>
+    </div>
+    <div id="tiered-modal-body"></div>
+  </div>
+</div>
+
 <!-- QUOTE VIEW MODAL -->
 <div class="modal-overlay" id="quote-modal">
   <div class="modal" style="width:780px;max-height:90vh;overflow-y:auto">
@@ -932,6 +1000,7 @@ const _defaultAppliances = {};
 // Will be filled after DEFAULT_APPLIANCES is defined — see initState()
 let state = {
   appliances: {},
+  customAppliances: [],   // [{ id, name, watts, qty, hours }]
   audits: [],
   quotes: [],
   prices: JSON.parse(JSON.stringify(DEFAULT_PRICES)),
@@ -971,6 +1040,7 @@ function init() {
   initState();           // ← ensure all appliances are valid objects
   loadFromStorage();     // ← apply any saved state
   renderApplianceGrid(); // ← build table with correct data
+  renderCustomList();    // ← render any saved custom devices
   populateSettingsForm();
   recalculate();
   updateDashboard();
@@ -988,6 +1058,7 @@ function loadFromStorage() {
     state.prices = parsed.prices || JSON.parse(JSON.stringify(DEFAULT_PRICES));
     state.config = parsed.config || { ...DEFAULT_CONFIG };
     state.company = parsed.company || { ...DEFAULT_COMPANY };
+    state.customAppliances = parsed.customAppliances || [];
   }
   // Ensure every appliance has a valid {qty, hours} object
   initAppliances();
@@ -999,7 +1070,8 @@ function saveToStorage() {
     quotes: state.quotes,
     prices: state.prices,
     config: state.config,
-    company: state.company
+    company: state.company,
+    customAppliances: state.customAppliances || []
   }));
 }
 
@@ -1142,6 +1214,22 @@ function calculateTotals() {
   return { totalLoad, totalEnergy, deviceRows };
 }
 
+// ── Custom appliances add to totals ──────────────────────────
+function calculateTotalsWithCustom() {
+  const base = calculateTotals();
+  let totalLoad = base.totalLoad;
+  let totalEnergy = base.totalEnergy;
+  const deviceRows = [...base.deviceRows];
+  (state.customAppliances || []).forEach(a => {
+    const load   = (Number(a.watts)||0) * (Number(a.qty)||0);
+    const energy = load * (Number(a.hours)||0);
+    totalLoad   += load;
+    totalEnergy += energy;
+    if (load > 0) deviceRows.push({ name: a.name + ' (custom)', watts: a.watts, qty: a.qty, hours: a.hours, deviceLoad: load, deviceEnergy: energy });
+  });
+  return { totalLoad, totalEnergy, deviceRows };
+}
+
 // ============================================================
 // CALCULATION ENGINE
 // ============================================================
@@ -1152,7 +1240,7 @@ function calcSystem(appliances, opts) {
   const prices      = state.prices.user;
 
   // ── Step 1: Load & Energy ──────────────────────────────────
-  const totals = calculateTotals();
+  const totals = calculateTotalsWithCustom();
   if (!totals) return null;
   const totalLoad     = totals.totalLoad;
   const deviceRows    = totals.deviceRows;
@@ -2017,6 +2105,187 @@ function updateBadges() {
 }
 
 // ============================================================
+// CUSTOM APPLIANCES
+// ============================================================
+function toggleCustomForm() {
+  const form = document.getElementById('custom-appl-form');
+  form.classList.toggle('open');
+}
+
+function addCustomAppliance() {
+  const name  = document.getElementById('ca-name').value.trim();
+  const watts = parseFloat(document.getElementById('ca-watts').value) || 0;
+  const qty   = parseInt(document.getElementById('ca-qty').value)   || 1;
+  const hours = parseFloat(document.getElementById('ca-hours').value) || 4;
+  if (!name || !watts) { alert('Please enter a device name and wattage.'); return; }
+  const id = 'custom_' + Date.now();
+  state.customAppliances = state.customAppliances || [];
+  state.customAppliances.push({ id, name, watts, qty, hours });
+  document.getElementById('ca-name').value = '';
+  document.getElementById('ca-watts').value = '';
+  document.getElementById('ca-qty').value = '1';
+  document.getElementById('ca-hours').value = '4';
+  saveToStorage();
+  renderCustomList();
+  recalculate();
+}
+
+function removeCustomAppliance(id) {
+  state.customAppliances = (state.customAppliances || []).filter(a => a.id !== id);
+  saveToStorage();
+  renderCustomList();
+  recalculate();
+}
+
+function updateCustomAppliance(id, field, val) {
+  const a = (state.customAppliances || []).find(x => x.id === id);
+  if (!a) return;
+  a[field] = field === 'name' ? val : (parseFloat(val) || 0);
+  saveToStorage();
+  recalculate();
+  // update load/energy display for this row
+  const load   = a.watts * a.qty;
+  const energy = load * a.hours;
+  const ld = document.getElementById('cdload-' + id);
+  const en = document.getElementById('cdenergy-' + id);
+  if (ld) ld.textContent = load.toLocaleString('en-NG') + ' W';
+  if (en) en.textContent = energy.toLocaleString('en-NG') + ' Wh';
+}
+
+function renderCustomList() {
+  const container = document.getElementById('custom-appliance-list');
+  if (!container) return;
+  const list = state.customAppliances || [];
+  if (!list.length) { container.innerHTML = ''; return; }
+  container.innerHTML = `
+    <table class="appl-table" style="margin-top:4px">
+      <thead><tr>
+        <th>Custom Device</th><th>Qty</th><th>Hrs/day</th><th>Load (W)</th><th>Energy (Wh)</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${list.map(a => {
+          const load = a.watts * a.qty;
+          const energy = load * a.hours;
+          return `<tr>
+            <td>
+              <input style="background:none;border:none;color:var(--text);font-weight:600;font-size:13px;width:100%;outline:none" 
+                value="${a.name}" onchange="updateCustomAppliance('${a.id}','name',this.value)">
+              <span class="appl-watts-badge">
+                <input type="number" style="background:none;border:none;color:var(--text3);font-family:monospace;font-size:9.5px;width:38px;outline:none"
+                  value="${a.watts}" onchange="updateCustomAppliance('${a.id}','watts',this.value)">W
+              </span>
+            </td>
+            <td>
+              <div class="appl-qty-ctrl">
+                <button class="qty-btn" onclick="updateCustomQty('${a.id}',-1)">−</button>
+                <div class="qty-val" id="cqty-${a.id}">${a.qty}</div>
+                <button class="qty-btn" onclick="updateCustomQty('${a.id}',1)">+</button>
+              </div>
+            </td>
+            <td><input class="hours-input" type="number" value="${a.hours}" min="0" max="24" onchange="updateCustomAppliance('${a.id}','hours',this.value)"></td>
+            <td><span class="appl-device-load" id="cdload-${a.id}">${load.toLocaleString('en-NG')} W</span></td>
+            <td><span class="appl-energy" id="cdenergy-${a.id}">${energy.toLocaleString('en-NG')} Wh</span></td>
+            <td><button class="custom-row-del" onclick="removeCustomAppliance('${a.id}')">✕</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function updateCustomQty(id, delta) {
+  const a = (state.customAppliances || []).find(x => x.id === id);
+  if (!a) return;
+  a.qty = Math.max(1, (a.qty || 1) + delta);
+  const el = document.getElementById('cqty-' + id);
+  if (el) el.textContent = a.qty;
+  updateCustomAppliance(id, 'qty', a.qty);
+}
+
+// ============================================================
+// TIERED QUOTES — Good / Better / Best
+// ============================================================
+function generateTieredQuote() {
+  const clientName  = document.getElementById('client-name').value || 'Client';
+  const clientPhone = document.getElementById('client-phone').value || '';
+  const location    = document.getElementById('client-location').value;
+  const propertyType = document.getElementById('property-type').value;
+  const inverterBrand = document.getElementById('inverter-brand').value;
+  const panelBrand  = document.getElementById('panel-brand').value;
+  const markup      = parseFloat(document.getElementById('markup').value) || 0;
+  const fmt = n => Math.round(n || 0).toLocaleString('en-NG');
+
+  // Three tiers: Good = Lead-acid 1 day, Better = Lithium 1 day, Best = Lithium 2 days
+  const tiers = [
+    { label: 'Good',   emoji: '☀️',  color: '#4f8ef7', batteryType: 'lead',    backupDays: 1, tagline: 'Essential backup — affordable entry point' },
+    { label: 'Better', emoji: '⚡',  color: '#f97316', batteryType: 'lithium', backupDays: 1, tagline: 'Smart choice — lithium performance & longevity' },
+    { label: 'Best',   emoji: '🏆',  color: '#10d97a', batteryType: 'lithium', backupDays: 2, tagline: 'Maximum independence — 2 days full autonomy' },
+  ];
+
+  const results = tiers.map(t => ({
+    ...t,
+    r: calcSystem(state.appliances, { batteryType: t.batteryType, markup, backupDays: t.backupDays })
+  })).filter(t => t.r);
+
+  if (!results.length) { alert('Please add some appliances first.'); return; }
+
+  const co = state.company;
+  const dateStr = new Date().toLocaleDateString('en-NG', { year:'numeric', month:'long', day:'numeric' });
+
+  const tierCards = results.map((t, i) => {
+    const r = t.r;
+    const isBest = t.label === 'Better'; // recommended tier
+    return `
+      <div class="tier-card ${isBest ? 'tier-best' : ''}" style="background:var(--surface)">
+        ${isBest ? '<div class="tier-recommended">Recommended</div>' : ''}
+        <div class="tier-header" style="border-bottom:2px solid ${t.color}20">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:22px">${t.emoji}</span>
+            <div>
+              <div class="tier-name" style="color:${t.color}">${t.label}</div>
+              <div class="tier-tagline">${t.tagline}</div>
+            </div>
+          </div>
+          <div class="tier-price" style="color:${t.color}">₦${fmt(r.total)}</div>
+          <div class="tier-price-sub">${t.batteryType === 'lithium' ? 'Lithium LiFePO4' : 'Lead-Acid'} · ${t.backupDays} day${t.backupDays > 1 ? 's' : ''} autonomy</div>
+        </div>
+        <div class="tier-specs">
+          <div class="tier-spec-row"><span class="tier-spec-label">Solar Panels</span><span class="tier-spec-val">${fmt(r.panelW)} W (${r.numPanels} panels)</span></div>
+          <div class="tier-spec-row"><span class="tier-spec-label">Battery Bank</span><span class="tier-spec-val">${Math.ceil(r.battCapacityAh)} Ah / ${(r.battCapacityWh/1000).toFixed(1)} kWh</span></div>
+          <div class="tier-spec-row"><span class="tier-spec-label">Batteries</span><span class="tier-spec-val">${r.totalBatteries > 0 ? r.totalBatteries + ' × ' + (state.config.individualBattAh||200) + 'Ah' : '—'}</span></div>
+          <div class="tier-spec-row"><span class="tier-spec-label">Inverter</span><span class="tier-spec-val">${r.selectedInverterKVA} kVA (${inverterBrand})</span></div>
+          <div class="tier-spec-row"><span class="tier-spec-label">Backup Runtime</span><span class="tier-spec-val">${r.battRuntimeHrs} hrs</span></div>
+          <div class="tier-spec-row"><span class="tier-spec-label">Equipment Cost</span><span class="tier-spec-val">₦${fmt(r.equipTotal)}</span></div>
+        </div>
+        <div class="tier-footer">
+          <button class="btn ${isBest ? 'btn-primary' : 'btn-secondary'}" style="width:100%;justify-content:center" 
+            onclick="generateQuote({id:'temp',clientName:'${clientName.replace(/'/g,"\\'")}',clientPhone:'${clientPhone}',location:'${location}',propertyType:'${propertyType}',batteryType:'${t.batteryType}',inverterBrand:'${inverterBrand}',panelBrand:'${panelBrand}',markup:${markup},appliances:JSON.parse(JSON.stringify(state.appliances)),result:calcSystem(state.appliances,{batteryType:'${t.batteryType}',markup:${markup},backupDays:${t.backupDays}})})">
+            Generate ${t.label} Quote
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('tiered-modal-body').innerHTML = `
+    <div style="margin-bottom:16px;padding:14px 18px;background:var(--surface2);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:700;color:var(--text)">${clientName}</div>
+        <div style="font-size:12px;color:var(--text3)">${propertyType} · ${location} · ${dateStr}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--text3)">Total Load</div>
+        <div style="font-weight:700;color:var(--accent)">${fmt(results[0].r.totalLoad)} W</div>
+      </div>
+    </div>
+    <div class="tier-grid">${tierCards}</div>
+    <div style="margin-top:16px;padding:12px 16px;background:var(--surface2);border-radius:var(--radius-sm);font-size:12px;color:var(--text3)">
+      💡 All options cover the same <strong style="color:var(--text)">${fmt(results[0].r.totalLoad)}W</strong> total load. 
+      The difference is battery type, depth of backup, and system longevity. Click any tier to generate a full client quote.
+    </div>`;
+
+  document.getElementById('tiered-modal').classList.add('open');
+}
+
+// ============================================================
 // LISTENERS
 // ============================================================
 document.querySelectorAll('#battery-type,#markup').forEach(el => {
@@ -2046,6 +2315,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initState();
   loadFromStorage();
   renderAppliances();
+  renderCustomList();
 });
 
 </script>

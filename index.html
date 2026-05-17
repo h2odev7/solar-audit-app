@@ -110,7 +110,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .stat-value { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--text); margin: 8px 0 4px; letter-spacing: -.02em; }
 .stat-sub { font-size: 11.5px; color: var(--text3); }
 /* QUICK ACTION KEYS */
-.quick-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 28px; }
+.quick-actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 28px; }
 .quick-action-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; padding: 30px 16px 26px;
@@ -246,7 +246,31 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .btn-add-custom:hover { opacity: .85; }
 .custom-row-del { width: 24px; height: 24px; border-radius: 5px; background: rgba(240,69,69,.15); border: 1px solid rgba(240,69,69,.2); color: var(--red); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
 .custom-row-del:hover { background: var(--red); color: white; }
-/* TIERED QUOTES */
+/* SAVINGS COMPARISON */
+.savings-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.savings-row:last-child { border-bottom: none; }
+.savings-label { color: var(--text2); }
+.savings-val { font-weight: 700; color: var(--text); font-family: var(--font-display); }
+.savings-highlight { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: linear-gradient(135deg, rgba(16,217,122,.1), rgba(16,217,122,.04)); border: 1px solid rgba(16,217,122,.2); border-radius: var(--radius-sm); margin-top: 12px; }
+.savings-highlight-label { font-size: 13px; font-weight: 600; color: var(--green); }
+.savings-highlight-val { font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--green); }
+/* PRE-BUILT PACKAGES */
+.pkg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.pkg-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; }
+.pkg-card:hover { border-color: var(--border3); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(249,115,22,.1); }
+.pkg-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--pkg-color, var(--accent)); }
+.pkg-icon { font-size: 28px; margin-bottom: 12px; }
+.pkg-name { font-family: var(--font-display); font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.pkg-desc { font-size: 12px; color: var(--text2); margin-bottom: 14px; line-height: 1.5; }
+.pkg-spec { font-size: 11.5px; color: var(--text3); margin-bottom: 3px; }
+.pkg-spec strong { color: var(--text2); }
+.pkg-btn { margin-top: 14px; width: 100%; padding: 9px; border-radius: var(--radius-sm); border: 1px solid var(--border3); background: none; color: var(--accent); font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .18s; }
+.pkg-btn:hover { background: var(--accent); color: #08090c; }
+/* FINANCING */
+.financing-band { background: linear-gradient(135deg, rgba(139,92,246,.08), rgba(139,92,246,.04)); border: 1px solid rgba(139,92,246,.2); border-radius: var(--radius-sm); padding: 16px 20px; margin-top: 12px; }
+.financing-monthly { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--purple); margin: 6px 0 2px; }
+.financing-sub { font-size: 11px; color: var(--text3); }
+@media(max-width:900px){ .pkg-grid { grid-template-columns: 1fr 1fr; } }
 .tier-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 20px; }
 .tier-card { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; position: relative; }
 .tier-card.tier-best { border-color: var(--accent); box-shadow: 0 0 30px rgba(249,115,22,0.12); }
@@ -272,6 +296,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .quick-actions { grid-template-columns: repeat(3, 1fr); }
   .two-col,.col-6040 { grid-template-columns: 1fr; }
+  .pkg-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>
 </head>
@@ -346,6 +371,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
       <div class="quick-action-label">Settings</div>
       <div class="quick-action-sub">Configure system</div>
+    </button>
+    <button class="quick-action-btn" onclick="showPage('packages')">
+      <div class="quick-action-icon" style="background:linear-gradient(135deg,#ec4899,#be185d);box-shadow:0 6px 20px rgba(236,72,153,0.3)">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      </div>
+      <div class="quick-action-label">Packages</div>
+      <div class="quick-action-sub">Ready-made systems</div>
     </button>
   </div>
 
@@ -521,9 +553,33 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           </div>
         </div>
       </div>
+      <!-- SAVINGS COMPARISON -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">💡 Savings Comparison <span class="badge">Optional</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px;margin-top:-6px">Enter current spending to show the client their ROI</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Grid Tariff (₦/kWh)</label>
+            <input type="number" class="form-input" id="sc-tariff" value="225" min="0" step="5" oninput="recalculate()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Grid Availability (hrs/day)</label>
+            <input type="number" class="form-input" id="sc-grid-hrs" value="6" min="0" max="24" oninput="recalculate()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Generator Fuel (Litres/day)</label>
+            <input type="number" class="form-input" id="sc-gen-litres" value="4" min="0" step="0.5" oninput="recalculate()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fuel Price (₦/Litre)</label>
+            <input type="number" class="form-input" id="sc-fuel-price" value="1400" min="0" step="50" oninput="recalculate()">
+          </div>
+        </div>
+        <div id="savings-panel" style="margin-top:4px"></div>
+      </div>
     </div>
-
-    <!-- LIVE CALC PANEL -->
     <div>
       <div class="card" style="margin-bottom:14px;position:sticky;top:20px">
         <div class="card-title">Live Calculation</div>
@@ -595,6 +651,24 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <div class="breakdown-total">
           <div class="breakdown-total-label">Client Quote Total</div>
           <div class="breakdown-total-val" id="calc-total">₦0</div>
+        </div>
+
+        <!-- FINANCING BREAKDOWN -->
+        <div class="financing-band">
+          <div style="font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">💳 Financing Options</div>
+          <div class="form-row" style="margin-bottom:10px">
+            <div>
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Deposit (%)</div>
+              <input type="number" class="form-input" id="fin-deposit" value="30" min="0" max="100" step="5" oninput="recalculate()" style="padding:7px 10px;font-size:13px">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px">Months</div>
+              <input type="number" class="form-input" id="fin-months" value="12" min="1" max="60" step="1" oninput="recalculate()" style="padding:7px 10px;font-size:13px">
+            </div>
+          </div>
+          <div id="financing-panel">
+            <div style="font-size:12px;color:var(--text3)">Enter a quote total to see monthly payments</div>
+          </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:14px">
           <button class="btn btn-primary" style="flex:1" onclick="saveAudit()">💾 Save Audit</button>
@@ -806,6 +880,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <button class="btn btn-danger" onclick="clearAllData()">🗑 Clear All Data</button>
     </div>
   </div>
+</div>
+
+<!-- PACKAGES PAGE -->
+<div class="page" id="page-packages">
+  <div class="page-header">
+    <div class="page-title">Pre-Built Packages</div>
+    <div class="page-desc">Common solar setups — click any package to pre-fill a new audit instantly</div>
+  </div>
+  <div class="pkg-grid" id="pkg-grid"></div>
 </div>
 
 <!-- ADMIN PAGE -->
@@ -1093,6 +1176,7 @@ function showPage(id) {
   if (id === 'dashboard') updateDashboard();
   if (id === 'new-audit') recalculate();
   if (id === 'admin') { loadAdminView(); populateAdminAudits(); }
+  if (id === 'packages') renderPackages();
 }
 
 // ============================================================
@@ -1373,6 +1457,13 @@ function recalculate() {
   set('calc-equip',           '₦' + fmt(r.equipTotal));
   set('calc-install',         '₦' + fmt(r.cInstall));
   set('calc-total',           '₦' + fmt(r.total));
+
+  // Savings comparison
+  const savings = calcSavings(r.total, r.totalEnergyKWh);
+  renderSavingsPanel(savings);
+
+  // Financing breakdown
+  renderFinancingPanel(r.total);
 
   // Final Audit Report card
   set('rep-inverter-calc', fmt(Math.round(r.inverterSizeW||0)) + ' W | ' + (r.inverterKVA||0).toFixed(2) + ' kVA');
@@ -2283,6 +2374,201 @@ function generateTieredQuote() {
     </div>`;
 
   document.getElementById('tiered-modal').classList.add('open');
+}
+
+// ============================================================
+// SAVINGS COMPARISON
+// ============================================================
+function calcSavings(totalCost, totalEnergyKWh) {
+  const tariff    = parseFloat(document.getElementById('sc-tariff')?.value) || 0;
+  const gridHrs   = parseFloat(document.getElementById('sc-grid-hrs')?.value) || 0;
+  const genLitres = parseFloat(document.getElementById('sc-gen-litres')?.value) || 0;
+  const fuelPrice = parseFloat(document.getElementById('sc-fuel-price')?.value) || 0;
+
+  if (!tariff && !genLitres) return null;
+
+  // Grid cost: only paying for the hours grid is available
+  const gridFraction   = Math.min(gridHrs / 24, 1);
+  const gridKWhPerDay  = totalEnergyKWh * gridFraction;
+  const gridCostPerDay = gridKWhPerDay * tariff;
+
+  // Generator cost: covering the non-grid hours
+  const genCostPerDay  = genLitres * fuelPrice;
+
+  const dailyCost  = gridCostPerDay + genCostPerDay;
+  const annualCost = dailyCost * 365;
+  const systemLife = 25; // years
+  const lifetimeCost = annualCost * systemLife;
+  const paybackYrs = annualCost > 0 ? totalCost / annualCost : 0;
+  const lifetimeSavings = lifetimeCost - totalCost;
+
+  return { dailyCost, annualCost, lifetimeCost, paybackYrs, lifetimeSavings, systemLife };
+}
+
+function renderSavingsPanel(savings) {
+  const panel = document.getElementById('savings-panel');
+  if (!panel) return;
+  if (!savings) { panel.innerHTML = ''; return; }
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+  const paybackStr = savings.paybackYrs > 0
+    ? (savings.paybackYrs < 1 ? Math.round(savings.paybackYrs * 12) + ' months' : savings.paybackYrs.toFixed(1) + ' years')
+    : '—';
+
+  panel.innerHTML = `
+    <div class="savings-row"><span class="savings-label">Current daily spend</span><span class="savings-val">₦${fmt(savings.dailyCost)}</span></div>
+    <div class="savings-row"><span class="savings-label">Current annual spend</span><span class="savings-val">₦${fmt(savings.annualCost)}</span></div>
+    <div class="savings-row"><span class="savings-label">Cost over ${savings.systemLife} years</span><span class="savings-val">₦${fmt(savings.lifetimeCost)}</span></div>
+    <div class="savings-row"><span class="savings-label">Estimated payback</span><span class="savings-val" style="color:var(--green)">${paybackStr}</span></div>
+    ${savings.lifetimeSavings > 0 ? `
+    <div class="savings-highlight">
+      <div class="savings-highlight-label">💰 ${savings.systemLife}-Year Net Savings</div>
+      <div class="savings-highlight-val">₦${fmt(savings.lifetimeSavings)}</div>
+    </div>` : `<div style="font-size:12px;color:var(--text3);margin-top:8px">Enter current spending details above to see savings.</div>`}`;
+}
+
+// ============================================================
+// FINANCING BREAKDOWN
+// ============================================================
+function renderFinancingPanel(total) {
+  const panel = document.getElementById('financing-panel');
+  if (!panel || !total) return;
+  const depositPct = parseFloat(document.getElementById('fin-deposit')?.value) || 30;
+  const months     = parseInt(document.getElementById('fin-months')?.value)   || 12;
+  const fmt = n => Math.round(n).toLocaleString('en-NG');
+
+  const deposit   = total * (depositPct / 100);
+  const balance   = total - deposit;
+  const monthly   = months > 0 ? balance / months : balance;
+
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:12px;color:var(--text3)">Deposit (${depositPct}%)</span>
+      <span style="font-size:12.5px;font-weight:700;color:var(--purple)">₦${fmt(deposit)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:12px;color:var(--text3)">Balance over ${months} months</span>
+      <span style="font-size:12.5px;font-weight:700;color:var(--purple)">₦${fmt(balance)}</span>
+    </div>
+    <div class="financing-monthly">₦${fmt(monthly)}<span style="font-size:14px;font-weight:400;color:var(--purple);opacity:.7">/mo</span></div>
+    <div class="financing-sub">After ₦${fmt(deposit)} deposit · ${months} monthly payments</div>`;
+}
+
+// ============================================================
+// PRE-BUILT PACKAGES
+// ============================================================
+const PACKAGES = [
+  {
+    id: 'home-office',
+    name: 'Home Office',
+    icon: '💼',
+    color: '#4f8ef7',
+    desc: 'Keeps your router, laptop, lights and a fan running through outages. Perfect for remote workers.',
+    appliances: { laptop: { qty:2, hours:8 }, light: { qty:4, hours:8 }, fan: { qty:1, hours:8 }, tv: { qty:0, hours:0 } },
+    specs: ['~500W load', '~1 kVA inverter', 'Lead-acid or Lithium', '4–8 hrs backup'],
+    batteryType: 'lithium', backupDays: 1
+  },
+  {
+    id: 'small-home',
+    name: 'Small Home Backup',
+    icon: '🏠',
+    color: '#f97316',
+    desc: '1–2 bedroom essentials: fridge, lights, fans, TV and phone charging.',
+    appliances: { fridge: { qty:1, hours:24 }, light: { qty:4, hours:6 }, fan: { qty:2, hours:8 }, tv: { qty:1, hours:5 }, mobile: { qty:3, hours:4 } },
+    specs: ['~800W load', '~2 kVA inverter', 'Lithium recommended', '8–12 hrs backup'],
+    batteryType: 'lithium', backupDays: 1
+  },
+  {
+    id: 'full-home',
+    name: 'Full Home 24/7',
+    icon: '🏡',
+    color: '#10d97a',
+    desc: '3–4 bedroom full-day coverage including 1.5hp AC, fridge, TV and all lights.',
+    appliances: { ac15hp: { qty:1, hours:8 }, fridge: { qty:1, hours:24 }, tv: { qty:2, hours:6 }, light: { qty:8, hours:6 }, fan: { qty:3, hours:8 }, mobile: { qty:5, hours:4 } },
+    specs: ['~3,000W load', '~5 kVA inverter', 'Lithium required', '24 hrs autonomy'],
+    batteryType: 'lithium', backupDays: 1
+  },
+  {
+    id: 'duplex',
+    name: 'Duplex / Large Home',
+    icon: '🏢',
+    color: '#8b5cf6',
+    desc: '2 ACs, full appliances across multiple floors. Built for comfort with no compromise.',
+    appliances: { ac15hp: { qty:2, hours:10 }, fridge: { qty:2, hours:24 }, tv: { qty:3, hours:6 }, light: { qty:12, hours:6 }, fan: { qty:4, hours:10 }, pump: { qty:1, hours:1 }, mobile: { qty:6, hours:4 } },
+    specs: ['~6,000W load', '~10 kVA inverter', 'Lithium required', '2 days autonomy'],
+    batteryType: 'lithium', backupDays: 2
+  },
+  {
+    id: 'shop',
+    name: 'Business / Shop',
+    icon: '🏪',
+    color: '#f59e0b',
+    desc: 'Retail or office: AC, POS machines, lighting and security cameras. Never lose a sale to outage.',
+    appliances: { ac1hp: { qty:2, hours:10 }, light: { qty:8, hours:10 }, laptop: { qty:3, hours:10 }, fan: { qty:2, hours:10 }, misc: { qty:3, hours:10 } },
+    specs: ['~3,500W load', '~5 kVA inverter', 'Lithium recommended', '10 hrs runtime'],
+    batteryType: 'lithium', backupDays: 1
+  },
+  {
+    id: 'telecoms',
+    name: 'Borehole / Telecoms',
+    icon: '📡',
+    color: '#ec4899',
+    desc: 'Water pump + base station or CCTV system. High-reliability, 24/7 uptime is non-negotiable.',
+    appliances: { pump: { qty:1, hours:4 }, misc: { qty:2, hours:24 }, light: { qty:2, hours:12 } },
+    specs: ['~1,200W load', '~3 kVA inverter', 'Lithium required', '2 days autonomy'],
+    batteryType: 'lithium', backupDays: 2
+  },
+];
+
+function renderPackages() {
+  const grid = document.getElementById('pkg-grid');
+  if (!grid) return;
+  grid.innerHTML = PACKAGES.map(pkg => `
+    <div class="pkg-card" style="--pkg-color:${pkg.color}">
+      <div class="pkg-icon">${pkg.icon}</div>
+      <div class="pkg-name">${pkg.name}</div>
+      <div class="pkg-desc">${pkg.desc}</div>
+      ${pkg.specs.map(s => `<div class="pkg-spec">• <strong>${s}</strong></div>`).join('')}
+      <button class="pkg-btn" onclick="applyPackage('${pkg.id}')">Use This Package →</button>
+    </div>`).join('');
+}
+
+function applyPackage(id) {
+  const pkg = PACKAGES.find(p => p.id === id);
+  if (!pkg) return;
+
+  // Reset all standard appliances to 0
+  DEFAULT_APPLIANCES.forEach(a => {
+    state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
+  });
+
+  // Apply package appliances
+  Object.entries(pkg.appliances).forEach(([aid, val]) => {
+    if (state.appliances[aid] !== undefined) {
+      state.appliances[aid] = { qty: val.qty, hours: val.hours };
+    }
+  });
+
+  // Set battery type
+  const battEl = document.getElementById('battery-type');
+  if (battEl) battEl.value = pkg.batteryType;
+
+  // Clear custom appliances
+  state.customAppliances = [];
+
+  // Navigate to new audit page
+  showPage('new-audit');
+
+  // Re-render grid with new values
+  renderApplianceGrid();
+  renderCustomList();
+  recalculate();
+
+  // Show confirmation
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:20px;right:20px;background:var(--green);color:#08090c;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4)';
+  toast.textContent = `✓ "${pkg.name}" package loaded`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 // ============================================================

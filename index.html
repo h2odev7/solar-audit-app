@@ -578,14 +578,108 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
           </div>
           <div class="form-group">
             <label class="form-label">Location / State</label>
-            <select class="form-input" id="client-location">
-              <option>Abuja FCT</option>
-              <option>Lagos</option>
-              <option>Port Harcourt</option>
-              <option>Kano</option>
-              <option>Ibadan</option>
-              <option>Enugu</option>
-              <option>Other</option>
+            <select class="form-input" id="client-location" onchange="onLocationChange()">
+              <optgroup label="🇳🇬 Nigeria">
+                <option data-currency="NGN">Abuja FCT</option>
+                <option data-currency="NGN">Lagos</option>
+                <option data-currency="NGN">Port Harcourt</option>
+                <option data-currency="NGN">Kano</option>
+                <option data-currency="NGN">Ibadan</option>
+                <option data-currency="NGN">Enugu</option>
+                <option data-currency="NGN">Benin City</option>
+                <option data-currency="NGN">Kaduna</option>
+                <option data-currency="NGN">Onitsha</option>
+                <option data-currency="NGN">Owerri</option>
+              </optgroup>
+              <optgroup label="🇺🇸 United States">
+                <option data-currency="USD">New York</option>
+                <option data-currency="USD">Los Angeles</option>
+                <option data-currency="USD">Houston</option>
+                <option data-currency="USD">Chicago</option>
+                <option data-currency="USD">Phoenix</option>
+              </optgroup>
+              <optgroup label="🇬🇧 United Kingdom">
+                <option data-currency="GBP">London</option>
+                <option data-currency="GBP">Manchester</option>
+                <option data-currency="GBP">Birmingham</option>
+              </optgroup>
+              <optgroup label="🇨🇦 Canada">
+                <option data-currency="CAD">Toronto</option>
+                <option data-currency="CAD">Vancouver</option>
+                <option data-currency="CAD">Calgary</option>
+              </optgroup>
+              <optgroup label="🇦🇺 Australia">
+                <option data-currency="AUD">Sydney</option>
+                <option data-currency="AUD">Melbourne</option>
+                <option data-currency="AUD">Brisbane</option>
+              </optgroup>
+              <optgroup label="🇿🇦 South Africa">
+                <option data-currency="ZAR">Johannesburg</option>
+                <option data-currency="ZAR">Cape Town</option>
+                <option data-currency="ZAR">Durban</option>
+              </optgroup>
+              <optgroup label="🇬🇭 Ghana">
+                <option data-currency="GHS">Accra</option>
+                <option data-currency="GHS">Kumasi</option>
+              </optgroup>
+              <optgroup label="🇰🇪 Kenya">
+                <option data-currency="KES">Nairobi</option>
+                <option data-currency="KES">Mombasa</option>
+              </optgroup>
+              <optgroup label="🇪🇬 Egypt">
+                <option data-currency="EGP">Cairo</option>
+                <option data-currency="EGP">Alexandria</option>
+              </optgroup>
+              <optgroup label="🇲🇦 Morocco">
+                <option data-currency="MAD">Casablanca</option>
+                <option data-currency="MAD">Rabat</option>
+              </optgroup>
+              <optgroup label="🇦🇪 UAE">
+                <option data-currency="AED">Dubai</option>
+                <option data-currency="AED">Abu Dhabi</option>
+              </optgroup>
+              <optgroup label="🇸🇦 Saudi Arabia">
+                <option data-currency="SAR">Riyadh</option>
+                <option data-currency="SAR">Jeddah</option>
+              </optgroup>
+              <optgroup label="🇮🇳 India">
+                <option data-currency="INR">Mumbai</option>
+                <option data-currency="INR">Delhi</option>
+                <option data-currency="INR">Bangalore</option>
+              </optgroup>
+              <optgroup label="🇵🇰 Pakistan">
+                <option data-currency="PKR">Karachi</option>
+                <option data-currency="PKR">Lahore</option>
+              </optgroup>
+              <optgroup label="🇧🇩 Bangladesh">
+                <option data-currency="BDT">Dhaka</option>
+              </optgroup>
+              <optgroup label="🇮🇩 Indonesia">
+                <option data-currency="IDR">Jakarta</option>
+                <option data-currency="IDR">Surabaya</option>
+              </optgroup>
+              <optgroup label="🇵🇭 Philippines">
+                <option data-currency="PHP">Manila</option>
+                <option data-currency="PHP">Cebu</option>
+              </optgroup>
+              <optgroup label="🇧🇷 Brazil">
+                <option data-currency="BRL">São Paulo</option>
+                <option data-currency="BRL">Rio de Janeiro</option>
+              </optgroup>
+              <optgroup label="🇲🇽 Mexico">
+                <option data-currency="MXN">Mexico City</option>
+                <option data-currency="MXN">Monterrey</option>
+              </optgroup>
+              <optgroup label="🇪🇺 Europe">
+                <option data-currency="EUR">Paris</option>
+                <option data-currency="EUR">Berlin</option>
+                <option data-currency="EUR">Madrid</option>
+                <option data-currency="EUR">Rome</option>
+                <option data-currency="EUR">Amsterdam</option>
+              </optgroup>
+              <optgroup label="🌍 Other">
+                <option data-currency="USD">Other</option>
+              </optgroup>
             </select>
           </div>
         </div>
@@ -1251,7 +1345,7 @@ const DEFAULT_COMPANY = {
   phone: '0800 000 0000',
   email: 'info@solariq.ng',
   web: 'www.solariq.ng',
-  currency: 'USD',
+  currency: 'NGN',
 };
 
 // ============================================================
@@ -1450,6 +1544,30 @@ function fmtCur(amountNGN) {
 // Just the symbol
 function curSymbol() { return getActiveCurrency().symbol; }
 
+function onLocationChange() {
+  const sel = document.getElementById('client-location');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  const currencyCode = opt?.getAttribute('data-currency');
+  if (!currencyCode) return;
+
+  // Only auto-switch if user hasn't manually set a different currency
+  // (i.e. if current currency matches a previous location's auto-set, update it)
+  state.company.currency = currencyCode;
+  saveToStorage();
+
+  // Update the currency dropdown in settings if it's visible
+  const curSel = document.getElementById('co-currency');
+  if (curSel) curSel.value = currencyCode;
+
+  recalculate();
+  updateDashboard();
+
+  // Show a subtle toast so the user knows currency switched
+  const cur = getActiveCurrency();
+  showToast(`Currency set to ${cur.code} (${cur.symbol}) for ${opt.text}`, 'info');
+}
+
 function onCurrencyChange() {
   const sel = document.getElementById('co-currency');
   if (sel) state.company.currency = sel.value;
@@ -1465,9 +1583,10 @@ function onCurrencyChange() {
 // TOAST NOTIFICATIONS
 // ============================================================
 function showToast(msg, type) {
-  const color = type === 'error' ? '#f04545' : type === 'warn' ? '#f59e0b' : '#10d97a';
+  const color = type === 'error' ? '#f04545' : type === 'warn' ? '#f59e0b' : type === 'info' ? '#4f8ef7' : '#10d97a';
+  const textColor = (type === 'warn') ? '#08090c' : 'white';
   const t = document.createElement('div');
-  t.style.cssText = `position:fixed;top:20px;right:20px;background:${color};color:${type==='warn'?'#08090c':'white'};padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s;max-width:320px`;
+  t.style.cssText = `position:fixed;top:20px;right:20px;background:${color};color:${textColor};padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s;max-width:320px`;
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);

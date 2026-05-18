@@ -108,6 +108,32 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 details summary::-webkit-details-marker { display: none; }
 details summary { user-select: none; }
 details[open] > summary span:first-child { transform: rotate(90deg); }
+/* COMPATIBILITY CHECK */
+.compat-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.compat-item:last-child { border-bottom:none; }
+.compat-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
+.compat-label { flex:1; color:var(--text2); }
+.compat-label strong { color:var(--text); display:block; margin-bottom:2px; }
+.compat-badge { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0; }
+.compat-ok   { background:rgba(16,217,122,.12); color:var(--green); border:1px solid rgba(16,217,122,.2); }
+.compat-warn { background:rgba(245,200,66,.12);  color:var(--yellow); border:1px solid rgba(245,200,66,.2); }
+.compat-fail { background:rgba(240,69,69,.12);   color:var(--red);    border:1px solid rgba(240,69,69,.2); }
+/* PRICE FOLDER */
+.price-folder { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:14px; }
+.price-folder-header { padding:12px 18px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.price-folder-title { font-family:var(--font-display); font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; }
+.price-folder-meta { font-size:11px; color:var(--text3); }
+.price-folder-row { display:flex; align-items:center; justify-content:space-between; padding:9px 18px; border-bottom:1px solid var(--border); font-size:13px; }
+.price-folder-row:last-child { border-bottom:none; }
+.price-folder-name { color:var(--text2); flex:1; }
+.price-folder-qty  { font-size:11px; color:var(--text3); min-width:60px; text-align:center; }
+.price-folder-price { font-family:var(--font-display); font-weight:700; color:var(--green); font-size:13.5px; min-width:80px; text-align:right; }
+/* INSTALLER PROFILE */
+.profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.profile-field { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; }
+.profile-field-label { font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.07em; margin-bottom:4px; }
+.profile-field-val { font-size:14px; font-weight:600; color:var(--text); }
+@media(max-width:900px){ .profile-grid { grid-template-columns:1fr; } }
 .user-chip { display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); width: 44px; height: 44px; }
 .user-avatar { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #c49a10); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #08090c; flex-shrink: 0; }
 .user-info { flex: 1; min-width: 0; }
@@ -546,6 +572,28 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
       </div>
     </div>
   </div>
+
+  <!-- PRICE FOLDER + INSTALLER PROFILE -->
+  <div class="two-col" style="margin-top:20px">
+    <div>
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">📂</span> Price List Summary
+        <span class="badge" style="font-size:10px">Read-only · User Prices</span>
+      </div>
+      <div id="dash-price-folders">
+        <div class="empty-state" style="padding:30px 0"><div class="empty-icon">💰</div><div class="empty-title">No catalog loaded</div></div>
+      </div>
+    </div>
+    <div>
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">👷</span> Installer's Profile
+      </div>
+      <div class="card" style="padding:20px">
+        <div class="profile-grid" id="installer-profile-display"></div>
+        <button class="btn btn-secondary" style="margin-top:14px;width:100%;justify-content:center" onclick="showInstallerEditModal()">✏️ Edit Profile</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- NEW AUDIT PAGE -->
@@ -573,11 +621,11 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Client Name</label>
-            <input type="text" class="form-input" id="client-name" placeholder="e.g. Mr. John Okafor">
+            <input type="text" class="form-input" id="client-name" placeholder="e.g. John Smith">
           </div>
           <div class="form-group">
             <label class="form-label">Phone</label>
-            <input type="text" class="form-input" id="client-phone" placeholder="08012345678">
+            <input type="text" class="form-input" id="client-phone" placeholder="+1 555 000 0000">
           </div>
         </div>
         <div class="form-row">
@@ -609,7 +657,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
                 <option data-currency="NGN">Owerri</option>
               </optgroup>
               <optgroup label="🇺🇸 United States">
-                <option data-currency="USD">New York</option>
+                <option data-currency="USD" selected>New York</option>
                 <option data-currency="USD">Los Angeles</option>
                 <option data-currency="USD">Houston</option>
                 <option data-currency="USD">Chicago</option>
@@ -951,6 +999,18 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
           </tr>
         </table>
       </div>
+
+      <!-- COMPATIBILITY CHECK CARD -->
+      <div class="card" style="margin-top:16px;border:1px solid var(--border2)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="font-size:20px">🔍</span>
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.05em">Compatibility Check</div>
+          <span id="compat-summary-badge" class="badge badge-gray" style="margin-left:auto">—</span>
+        </div>
+        <div id="compat-list">
+          <div style="font-size:12px;color:var(--text3);text-align:center;padding:16px 0">Add appliances to run compatibility check</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1289,7 +1349,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
       </div>
       <div>
         <div class="custom-appl-label">Phone</div>
-        <input class="custom-appl-input" id="crm-phone" placeholder="08012345678">
+        <input class="custom-appl-input" id="crm-phone" placeholder="+1 555 000 0000">
       </div>
       <div>
         <div class="custom-appl-label">Property / Location</div>
@@ -1314,6 +1374,35 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
 
 </main>
 </div><!-- end app -->
+
+<!-- INSTALLER PROFILE MODAL -->
+<div class="modal-overlay" id="installer-modal">
+  <div class="modal" style="width:520px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div class="modal-title">👷 Installer's Profile</div>
+      <button class="btn btn-ghost" onclick="closeModal('installer-modal')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Full Name</label><input type="text" class="form-input" id="inst-name" placeholder="e.g. Emeka Okafor"></div>
+      <div class="form-group"><label class="form-label">Phone</label><input type="text" class="form-input" id="inst-phone" placeholder="+1 555 000 0000"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Company</label><input type="text" class="form-input" id="inst-company" placeholder="SolarIQ Ltd"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="text" class="form-input" id="inst-email" placeholder="installer@solariq.ng"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Certification / Licence No.</label><input type="text" class="form-input" id="inst-cert" placeholder="e.g. NERC-2024-001"></div>
+      <div class="form-group"><label class="form-label">Years of Experience</label><input type="number" class="form-input" id="inst-years" placeholder="5" min="0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Specialisation</label>
+      <input type="text" class="form-input" id="inst-spec" placeholder="e.g. Residential Solar, Off-grid Systems">
+    </div>
+    <div class="form-group"><label class="form-label">Location / State</label>
+      <input type="text" class="form-input" id="inst-location" placeholder="e.g. Lagos, Nigeria">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="saveInstallerProfile()">💾 Save Profile</button>
+  </div>
+</div>
 
 <!-- AUDIT DETAIL MODAL -->
 <div class="modal-overlay" id="audit-modal">
@@ -1431,11 +1520,11 @@ const DEFAULT_CONFIG = {
 
 const DEFAULT_COMPANY = {
   name: 'SolarIQ Ltd',
-  address: '123 Energy Way, Abuja FCT',
-  phone: '0800 000 0000',
-  email: 'info@solariq.ng',
-  web: 'www.solariq.ng',
-  currency: 'NGN',
+  address: '123 Energy Way, New York',
+  phone: '+1 555 000 0000',
+  email: 'info@solariq.com',
+  web: 'www.solariq.com',
+  currency: 'USD',
 };
 
 // ============================================================
@@ -1645,19 +1734,39 @@ function onLocationChange() {
   const currencyCode = opt?.getAttribute('data-currency');
   if (!currencyCode) return;
 
-  // Only auto-switch if user hasn't manually set a different currency
-  // (i.e. if current currency matches a previous location's auto-set, update it)
+  // Auto-switch currency
   state.company.currency = currencyCode;
   saveToStorage();
-
-  // Update the currency dropdown in settings if it's visible
   const curSel = document.getElementById('co-currency');
   if (curSel) curSel.value = currencyCode;
-
   recalculate();
   updateDashboard();
 
-  // Show a subtle toast so the user knows currency switched
+  // Update client name/phone placeholders to match country format
+  const COUNTRY_HINTS = {
+    NGN: { name:'e.g. Emeka Okafor',    phone:'e.g. 08012345678' },
+    USD: { name:'e.g. John Smith',      phone:'e.g. +1 555 000 0000' },
+    GBP: { name:'e.g. James Wilson',    phone:'e.g. +44 7700 900000' },
+    CAD: { name:'e.g. Michael Brown',   phone:'e.g. +1 416 000 0000' },
+    AUD: { name:'e.g. David Taylor',    phone:'e.g. +61 4 0000 0000' },
+    ZAR: { name:'e.g. Sipho Dlamini',   phone:'e.g. +27 82 000 0000' },
+    GHS: { name:'e.g. Kwame Mensah',    phone:'e.g. +233 24 000 0000' },
+    KES: { name:'e.g. Wanjiku Kamau',   phone:'e.g. +254 7 00 000000' },
+    EGP: { name:'e.g. Ahmed Hassan',    phone:'e.g. +20 10 0000 0000' },
+    AED: { name:'e.g. Mohammed Al Ali', phone:'e.g. +971 50 000 0000' },
+    SAR: { name:'e.g. Abdullah Al Saud',phone:'e.g. +966 5 000 00000' },
+    INR: { name:'e.g. Rajesh Kumar',    phone:'e.g. +91 98000 00000' },
+    PKR: { name:'e.g. Ali Hassan',      phone:'e.g. +92 300 0000000' },
+    BRL: { name:'e.g. Carlos Silva',    phone:'e.g. +55 11 90000-0000' },
+    EUR: { name:'e.g. Pierre Dupont',   phone:'e.g. +33 6 00 00 00 00' },
+  };
+  const hints = COUNTRY_HINTS[currencyCode] || { name:'e.g. John Smith', phone:'e.g. +1 555 000 0000' };
+  const nameEl  = document.getElementById('client-name');
+  const phoneEl = document.getElementById('client-phone');
+  if (nameEl)  nameEl.placeholder  = hints.name;
+  if (phoneEl) phoneEl.placeholder = hints.phone;
+
+  // Show toast
   const cur = getActiveCurrency();
   showToast(`Currency set to ${cur.code} (${cur.symbol}) for ${opt.text}`, 'info');
 }
@@ -2034,11 +2143,12 @@ function recalculate() {
   const cb = document.getElementById('currency-badge');
   if (cb) cb.textContent = getActiveCurrency().code;
 
-  // Savings comparison + financing — only relevant on New Audit page
+  // Compatibility check — only when on new-audit page
   if (document.getElementById('page-new-audit')?.classList.contains('active')) {
     const savings = calcSavings(r.total, r.totalEnergyKWh);
     renderSavingsPanel(savings);
     renderFinancingPanel(r.total);
+    runCompatibilityCheck(r);
   }
 
   // Final Audit Report card
@@ -3036,6 +3146,10 @@ function updateDashboard() {
       dashBar.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:10px 0">No load data yet — create an audit to see distribution</div>';
     }
   }
+
+  // Price folders and installer profile
+  renderDashboardPriceFolders();
+  renderInstallerProfile();
 }
 
 function updateBadges() {
@@ -3675,6 +3789,194 @@ function renderCrmPipeline() {
         </div>
       </div>`;
   }).join('');
+}
+
+// ============================================================
+// PRICE FOLDER — dashboard read-only catalog summary
+// ============================================================
+function renderDashboardPriceFolders() {
+  const el = document.getElementById('dash-price-folders');
+  if (!el) return;
+  const catalog = getCatalog();
+  const sections = [
+    { key:'panels',    icon:'☀️', title:'Solar Panels' },
+    { key:'batteries', icon:'🔋', title:'Batteries' },
+    { key:'inverters', icon:'⚡', title:'Inverters' },
+  ];
+  el.innerHTML = sections.map(sec => {
+    const brands = catalog[sec.key] || [];
+    const allItems = brands.flatMap(b => b.items.map(i => ({ ...i, brandName: b.brand })));
+    if (!allItems.length) return '';
+    const rows = allItems.map(item => {
+      const userPrice = Math.round(item.dealerPrice * 1.1);
+      const qtyLabel  = sec.key === 'panels'    ? `${item.watt||''}W`
+                       : sec.key === 'batteries' ? `${item.ah||''}Ah ${item.volt||''}V`
+                       : `${item.kw||''}kW ${item.volt||''}V`;
+      return `<div class="price-folder-row">
+        <div class="price-folder-name">${item.brandName} <span style="font-size:11px;color:var(--text3)">${item.label}</span></div>
+        <div class="price-folder-qty">${qtyLabel}</div>
+        <div class="price-folder-price">${fmtCur(userPrice)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="price-folder">
+      <div class="price-folder-header">
+        <div class="price-folder-title">${sec.icon} ${sec.title}</div>
+        <div class="price-folder-meta">${allItems.length} products</div>
+      </div>
+      <div class="price-folder-body">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// INSTALLER PROFILE
+// ============================================================
+const DEFAULT_INSTALLER = { name:'', phone:'', company:'', email:'', cert:'', years:'', spec:'', location:'' };
+function getInstallerProfile() {
+  try { return JSON.parse(localStorage.getItem('solariq_installer') || 'null') || { ...DEFAULT_INSTALLER }; }
+  catch { return { ...DEFAULT_INSTALLER }; }
+}
+function saveInstallerProfile() {
+  const profile = {
+    name:     document.getElementById('inst-name').value.trim(),
+    phone:    document.getElementById('inst-phone').value.trim(),
+    company:  document.getElementById('inst-company').value.trim(),
+    email:    document.getElementById('inst-email').value.trim(),
+    cert:     document.getElementById('inst-cert').value.trim(),
+    years:    document.getElementById('inst-years').value.trim(),
+    spec:     document.getElementById('inst-spec').value.trim(),
+    location: document.getElementById('inst-location').value.trim(),
+  };
+  localStorage.setItem('solariq_installer', JSON.stringify(profile));
+  closeModal('installer-modal');
+  renderInstallerProfile();
+  showToast('✅ Installer profile saved');
+}
+function showInstallerEditModal() {
+  const p = getInstallerProfile();
+  document.getElementById('inst-name').value     = p.name     || '';
+  document.getElementById('inst-phone').value    = p.phone    || '';
+  document.getElementById('inst-company').value  = p.company  || '';
+  document.getElementById('inst-email').value    = p.email    || '';
+  document.getElementById('inst-cert').value     = p.cert     || '';
+  document.getElementById('inst-years').value    = p.years    || '';
+  document.getElementById('inst-spec').value     = p.spec     || '';
+  document.getElementById('inst-location').value = p.location || '';
+  document.getElementById('installer-modal').classList.add('open');
+}
+function renderInstallerProfile() {
+  const el = document.getElementById('installer-profile-display');
+  if (!el) return;
+  const p = getInstallerProfile();
+  const fields = [
+    { label:'Name',           val: p.name      || '—' },
+    { label:'Phone',          val: p.phone     || '—' },
+    { label:'Company',        val: p.company   || '—' },
+    { label:'Email',          val: p.email     || '—' },
+    { label:'Cert / Licence', val: p.cert      || '—' },
+    { label:'Experience',     val: p.years ? p.years + ' yrs' : '—' },
+    { label:'Specialisation', val: p.spec      || '—' },
+    { label:'Location',       val: p.location  || '—' },
+  ];
+  el.innerHTML = fields.map(f => `
+    <div class="profile-field">
+      <div class="profile-field-label">${f.label}</div>
+      <div class="profile-field-val">${f.val}</div>
+    </div>`).join('');
+}
+
+// ============================================================
+// COMPATIBILITY CHECK
+// ============================================================
+function runCompatibilityCheck(r) {
+  if (!r || r.totalLoad === 0) return;
+  const cfg    = state.config;
+  const checks = [];
+  const battVolt    = Number(cfg.battVoltage)     || 48;
+  const invVolt     = Number(cfg.inverterVoltage) || 48;
+  const battType    = cfg.batteryType || 'lithium';
+  const invKVA      = r.selectedInverterKVA || 0;
+  const totalLoadKW = (r.totalLoad || 0) / 1000;
+
+  // 1. Battery voltage vs inverter voltage
+  if (battVolt === invVolt) {
+    checks.push({ icon:'🔋', label:'Battery ↔ Inverter Voltage',
+      detail:`${battVolt}V battery matches ${invVolt}V inverter`, status:'ok' });
+  } else {
+    checks.push({ icon:'🔋', label:'Battery ↔ Inverter Voltage',
+      detail:`${battVolt}V battery does not match ${invVolt}V inverter — wiring mismatch`, status:'fail' });
+  }
+
+  // 2. Inverter kVA vs total load
+  const invKW = invKVA * 0.8;
+  if (invKW >= totalLoadKW * 1.1) {
+    checks.push({ icon:'⚡', label:'Inverter Capacity vs Load',
+      detail:`${invKVA} kVA handles ${totalLoadKW.toFixed(2)} kW load with ≥10% headroom`, status:'ok' });
+  } else if (invKW >= totalLoadKW) {
+    checks.push({ icon:'⚡', label:'Inverter Capacity vs Load',
+      detail:`${invKVA} kVA is just sufficient for ${totalLoadKW.toFixed(2)} kW — consider upsizing`, status:'warn' });
+  } else {
+    checks.push({ icon:'⚡', label:'Inverter Capacity vs Load',
+      detail:`${invKVA} kVA is undersized for ${totalLoadKW.toFixed(2)} kW load`, status:'fail' });
+  }
+
+  // 3. Battery type & voltage notes
+  if (battType === 'lead' && battVolt === 48) {
+    checks.push({ icon:'⚠️', label:'Lead-Acid @ 48V Wiring',
+      detail:'48V lead-acid requires 4× 12V batteries in series — verify wiring configuration', status:'warn' });
+  } else if (battType === 'lead' && battVolt === 24) {
+    checks.push({ icon:'⚠️', label:'Lead-Acid @ 24V Wiring',
+      detail:'24V lead-acid requires 2× 12V batteries in series', status:'warn' });
+  } else {
+    checks.push({ icon:'✅', label:'Lithium Battery Compatibility',
+      detail:`LiFePO4 at ${battVolt}V — optimal for ${invVolt}V inverter systems`, status:'ok' });
+  }
+
+  // 4. Panel array vs inverter MPPT input
+  const panelW = r.panelW || 0;
+  const maxSolarInput = invKVA * 1000 * 1.3;
+  if (panelW <= maxSolarInput) {
+    checks.push({ icon:'☀️', label:'Solar Array vs Inverter MPPT',
+      detail:`${(panelW/1000).toFixed(1)} kWp array is within inverter MPPT capacity`, status:'ok' });
+  } else {
+    checks.push({ icon:'☀️', label:'Solar Array vs Inverter MPPT',
+      detail:`${(panelW/1000).toFixed(1)} kWp array may exceed MPPT capacity — verify inverter spec sheet`, status:'warn' });
+  }
+
+  // 5. Battery runtime vs daily load
+  const battKWh   = (r.battCapacityWh || 0) / 1000;
+  const dailyKWh  = r.dailyKWh || 0;
+  const hoursRuntime = dailyKWh > 0 ? (battKWh / dailyKWh) * 24 : 0;
+  if (hoursRuntime >= 8) {
+    checks.push({ icon:'⏱', label:'Battery Runtime',
+      detail:`${hoursRuntime.toFixed(1)} hrs full runtime — sufficient for daily use`, status:'ok' });
+  } else if (hoursRuntime >= 4) {
+    checks.push({ icon:'⏱', label:'Battery Runtime',
+      detail:`${hoursRuntime.toFixed(1)} hrs full runtime — adequate but consider adding capacity`, status:'warn' });
+  } else {
+    checks.push({ icon:'⏱', label:'Battery Runtime',
+      detail:`${hoursRuntime.toFixed(1)} hrs full runtime — battery bank may be undersized`, status:'fail' });
+  }
+
+  const fails = checks.filter(c => c.status === 'fail').length;
+  const warns = checks.filter(c => c.status === 'warn').length;
+  const badge = fails > 0 ? { text:`${fails} Issue${fails>1?'s':''}`, cls:'compat-fail' }
+               : warns > 0 ? { text:`${warns} Warning${warns>1?'s':''}`, cls:'compat-warn' }
+               : { text:'All Compatible ✓', cls:'compat-ok' };
+
+  const sb = document.getElementById('compat-summary-badge');
+  if (sb) { sb.textContent = badge.text; sb.className = `badge ${badge.cls}`; }
+
+  const list = document.getElementById('compat-list');
+  if (list) list.innerHTML = checks.map(c => `
+    <div class="compat-item">
+      <div class="compat-icon">${c.icon}</div>
+      <div class="compat-label">
+        <strong>${c.label}</strong>
+        ${c.detail}
+      </div>
+      <div class="compat-badge compat-${c.status}">${c.status==='ok'?'✓ OK':c.status==='warn'?'⚠ Warn':'✗ Issue'}</div>
+    </div>`).join('');
 }
 
 // ============================================================

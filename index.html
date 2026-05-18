@@ -50,23 +50,23 @@ window._fbLoaded = true;
   --glow-sm: 0 0 14px rgba(249,115,22,0.2);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; font-size: 14px; line-height: 1.5; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; font-size: 14px; line-height: 1.5; -webkit-text-size-adjust: 100%; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface4); border-radius: 4px; }
-.app { display: flex; height: 100vh; }
-.sidebar { width: 180px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: relative; z-index: 10; }
+.app { display: flex; height: 100vh; height: 100dvh; }
+.sidebar { width: 88px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; position: relative; z-index: 10; }
 .sidebar::after { content: ''; position: absolute; top: 0; right: -1px; width: 1px; height: 100%; background: linear-gradient(to bottom, transparent, rgba(249,115,22,0.2), transparent); }
-.main { flex: 1; overflow-y: auto; background: var(--bg); display: flex; justify-content: center; }
-.logo { padding: 22px 18px 20px; border-bottom: 1px solid var(--border); }
-.logo-mark { display: flex; align-items: center; gap: 10px; }
-.logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), #ea580c); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: var(--glow-sm); flex-shrink: 0; }
-.logo-text { font-family: var(--font-display); font-weight: 800; font-size: 16px; letter-spacing: -.02em; color: var(--text); line-height: 1.1; }
-.logo-sub { font-size: 9px; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
-.nav { flex: 1; padding: 10px 10px; overflow-y: auto; }
+.main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; background: var(--bg); display: flex; justify-content: center; overscroll-behavior-y: contain; }
+.logo { padding: 18px 8px 16px; border-bottom: 1px solid var(--border); width: 100%; display: flex; justify-content: center; }
+.logo-mark { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), #ea580c); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; box-shadow: var(--glow-sm); flex-shrink: 0; }
+.logo-text { font-family: var(--font-display); font-weight: 800; font-size: 12px; letter-spacing: -.01em; color: var(--text); line-height: 1.1; text-align: center; }
+.logo-sub { font-size: 8px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-top: 1px; text-align: center; }
+.nav { flex: 1; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; }
 .nav-section { font-size: 9.5px; color: var(--text3); letter-spacing: .12em; text-transform: uppercase; font-weight: 600; padding: 0 10px; margin: 18px 0 6px; }
 .nav-section:first-child { margin-top: 4px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .18s; margin-bottom: 3px; border: none; background: none; width: 100%; text-align: left; }
+.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 10px 6px; border-radius: var(--radius-sm); cursor: pointer; font-size: 10px; font-weight: 600; color: var(--text2); transition: all .18s; margin-bottom: 3px; border: none; background: none; width: 72px; text-align: center; }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--surface2); color: var(--text); }
 .nav-icon-box { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform .18s, box-shadow .18s; }
@@ -74,6 +74,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .nav-item.active .nav-icon-box { box-shadow: 0 4px 14px rgba(249,115,22,0.35); }
 .nav-badge { margin-left: auto; background: var(--accent); color: #08090c; font-size: 9.5px; font-weight: 800; border-radius: 20px; padding: 1px 7px; box-shadow: 0 0 8px rgba(245,200,66,.4); }
 .sidebar-footer { display: none; }
+/* BACK BUTTON */
+.back-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--text3); background: none; border: 1px solid var(--border); cursor: pointer; transition: all .15s; margin-bottom: 10px; }
+.back-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
+.back-btn svg { width: 14px; height: 14px; }
+/* PACKAGE BANNER */
+.pkg-banner { display: none; padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; border: 1px solid; align-items: center; gap: 12px; }
+.pkg-banner.visible { display: flex; }
+.pkg-banner-icon { font-size: 24px; flex-shrink: 0; }
+.pkg-banner-info { flex: 1; }
+.pkg-banner-name { font-family: var(--font-display); font-size: 14px; font-weight: 800; }
+.pkg-banner-desc { font-size: 11.5px; opacity: .7; margin-top: 1px; }
+.pkg-banner-close { background: none; border: none; color: inherit; opacity: .5; cursor: pointer; font-size: 16px; padding: 4px; transition: opacity .15s; }
+.pkg-banner-close:hover { opacity: 1; }
 .user-chip { display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); width: 44px; height: 44px; }
 .user-avatar { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #c49a10); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #08090c; flex-shrink: 0; }
 .user-info { flex: 1; min-width: 0; }
@@ -81,6 +94,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .user-role { font-size: 10px; color: var(--text3); margin-top: 1px; }
 .page { display: none; padding: 40px 40px; width: 100%; max-width: 1100px; min-height: 100%; }
 .page.active { display: block; }
+.calc-panel-sticky { position: sticky; top: 20px; }
 .page-header { margin-bottom: 32px; }
 .page-title { font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -.03em; background: linear-gradient(135deg, #fff 50%, rgba(249,115,22,.85)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .page-desc { font-size: 13.5px; color: var(--text2); margin-top: 5px; }
@@ -324,18 +338,24 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .tier-footer { padding: 14px 22px; }
 .tier-recommended { position: absolute; top: 12px; right: 12px; background: var(--accent); color: #08090c; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; padding: 3px 8px; border-radius: 20px; }
 @media(max-width:900px){
-  .sidebar { width: 56px; overflow: hidden; }
+  .sidebar { width: 52px; overflow: hidden; }
   .logo-text-wrap,.logo-text,.logo-sub,.nav-section,.nav-badge,.user-info,.user-name,.user-role { display: none; }
-  .logo { padding: 14px 0; justify-content: center; display: flex; }
-  .logo-mark { justify-content: center; }
-  .nav { padding: 8px 6px; align-items: center; }
-  .nav-item { justify-content: center; padding: 10px; width: 44px; }
+  .logo { padding: 12px 0; }
+  .nav { padding: 8px 4px; }
+  .nav-item { width: 40px; padding: 8px 4px; }
   .nav-item span { display: none; }
   .page { padding: 20px 16px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .quick-actions { grid-template-columns: repeat(2, 1fr); }
   .two-col,.col-6040 { grid-template-columns: 1fr; }
   .pkg-grid { grid-template-columns: 1fr 1fr; }
+  /* Scroll perf: remove sticky, reduce transitions, kill backdrop-filter */
+  .calc-panel-sticky { position: static; }
+  .stat-card:hover,.quick-action-btn:hover,.audit-item:hover,.pkg-card:hover,.card:hover { transform: none !important; box-shadow: none !important; }
+  .modal-overlay { backdrop-filter: none; }
+  .crm-pipeline { grid-template-columns: 1fr; }
+  .viz-grid { grid-template-columns: 1fr; }
+  .tier-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -478,6 +498,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- NEW AUDIT PAGE -->
 <div class="page" id="page-new-audit">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
+  <!-- PACKAGE BANNER -->
+  <div class="pkg-banner" id="pkg-banner">
+    <div class="pkg-banner-icon" id="pkg-banner-icon"></div>
+    <div class="pkg-banner-info">
+      <div class="pkg-banner-name" id="pkg-banner-name"></div>
+      <div class="pkg-banner-desc" id="pkg-banner-desc"></div>
+    </div>
+    <button class="pkg-banner-close" onclick="clearPackageBanner()" title="Dismiss">✕</button>
+  </div>
   <div class="page-header">
     <div class="page-title">New Audit</div>
     <div class="page-desc">Complete the form to generate a solar system specification and cost breakdown</div>
@@ -634,7 +664,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
     </div>
     <div>
-      <div class="card" style="margin-bottom:14px;position:sticky;top:20px">
+      <div class="card calc-panel-sticky" style="margin-bottom:14px">
         <div class="card-title">Live Calculation</div>
         <div class="breakdown-item">
           <div class="breakdown-label">Total Load<span>Sum of all appliances</span></div>
@@ -765,6 +795,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- SAVED AUDITS PAGE -->
 <div class="page" id="page-audits">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -779,6 +810,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- QUOTES PAGE -->
 <div class="page" id="page-quotes">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div class="page-title">Generated Quotes</div>
     <div class="page-desc">Client-ready quotes and proposals</div>
@@ -788,6 +820,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- PRICING PAGE -->
 <div class="page" id="page-pricing">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -809,6 +842,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- SETTINGS PAGE -->
 <div class="page" id="page-settings">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div class="page-title">Settings</div>
     <div class="page-desc">Company info and system configuration</div>
@@ -937,6 +971,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- PACKAGES PAGE -->
 <div class="page" id="page-packages">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div class="page-title">Pre-Built Packages</div>
     <div class="page-desc">Common solar setups — click any package to pre-fill a new audit instantly</div>
@@ -946,6 +981,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- VISUALIZATIONS PAGE -->
 <div class="page" id="page-viz">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div class="page-title">Interactive Visualizations</div>
     <div class="page-desc">Real-time system breakdown — reflects your current audit inputs</div>
@@ -1007,6 +1043,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- CRM PAGE -->
 <div class="page" id="page-crm">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
@@ -1049,6 +1086,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 <!-- ADMIN PAGE -->
 <div class="page" id="page-admin">
+  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
     <div>
       <div class="page-title">👑 Team &amp; Users</div>
@@ -2698,6 +2736,9 @@ function applyPackage(id) {
   const pkg = PACKAGES.find(p => p.id === id);
   if (!pkg) return;
 
+  // Store active package for banner
+  state._activePackage = id;
+
   // Reset all standard appliances to 0
   DEFAULT_APPLIANCES.forEach(a => {
     state.appliances[a.id] = { qty: 0, hours: a.defaultHours };
@@ -2720,6 +2761,21 @@ function applyPackage(id) {
   // Navigate to new audit page
   showPage('new-audit');
 
+  // Show package banner
+  const banner = document.getElementById('pkg-banner');
+  if (banner) {
+    banner.style.background = pkg.color + '12';
+    banner.style.borderColor = pkg.color + '40';
+    banner.classList.add('visible');
+    document.getElementById('pkg-banner-icon').textContent = pkg.icon;
+    const nameEl = document.getElementById('pkg-banner-name');
+    nameEl.textContent = pkg.name + ' Package';
+    nameEl.style.color = pkg.color;
+    const descEl = document.getElementById('pkg-banner-desc');
+    descEl.textContent = pkg.desc;
+    descEl.style.color = pkg.color;
+  }
+
   // Re-render grid with new values
   renderApplianceGrid();
   renderCustomList();
@@ -2731,6 +2787,12 @@ function applyPackage(id) {
   toast.textContent = `✓ "${pkg.name}" package loaded`;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
+}
+
+function clearPackageBanner() {
+  state._activePackage = null;
+  const banner = document.getElementById('pkg-banner');
+  if (banner) banner.classList.remove('visible');
 }
 
 // ============================================================

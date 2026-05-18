@@ -533,7 +533,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
 
 <!-- NEW AUDIT PAGE -->
 <div class="page" id="page-new-audit">
-  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
+  <button class="back-btn" onclick="auditBackBtn()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <!-- PACKAGE BANNER -->
   <div class="pkg-banner" id="pkg-banner">
     <div class="pkg-banner-icon" id="pkg-banner-icon"></div>
@@ -2835,6 +2835,16 @@ function clearPackageBanner() {
   state._activePackage = null;
   const banner = document.getElementById('pkg-banner');
   if (banner) banner.classList.remove('visible');
+}
+
+function auditBackBtn() {
+  // If arrived from a package, go back to packages; otherwise go to dashboard
+  if (state._activePackage) {
+    clearPackageBanner();
+    showPage('packages');
+  } else {
+    showPage('dashboard');
+  }
 }
 
 // ============================================================

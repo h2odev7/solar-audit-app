@@ -836,14 +836,57 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
           <div class="breakdown-val" id="calc-selected-inv">— kVA</div>
         </div>
         <div class="divider"></div>
+        <!-- EQUIPMENT BREAKDOWN -->
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Equipment Breakdown</div>
+
+        <!-- Inverter -->
         <div class="breakdown-item">
-          <div class="breakdown-label">Equipment Cost<span>Before markup</span></div>
-          <div class="breakdown-val" id="calc-equip">₦0</div>
+          <div class="breakdown-label">⚡ Inverter<span id="calc-inv-desc">— kVA · —</span></div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--text3)" id="calc-inv-qty">1 unit</div>
+            <div class="breakdown-val" id="calc-inv-price">—</div>
+          </div>
         </div>
+
+        <!-- Solar Panels -->
         <div class="breakdown-item">
-          <div class="breakdown-label">Installation<span>12% of equipment</span></div>
-          <div class="breakdown-val" id="calc-install">₦0</div>
+          <div class="breakdown-label">☀️ Solar Panels<span id="calc-panel-desc">— · —W each</span></div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--text3)" id="calc-panel-qty">— panels</div>
+            <div class="breakdown-val" id="calc-panel-price">—</div>
+          </div>
         </div>
+
+        <!-- Battery -->
+        <div class="breakdown-item">
+          <div class="breakdown-label">🔋 Battery<span id="calc-batt-desc">— · —Ah —V</span></div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--text3)" id="calc-batt-qty">— units</div>
+            <div class="breakdown-val" id="calc-batt-price">—</div>
+          </div>
+        </div>
+
+        <!-- Accessories -->
+        <div class="breakdown-item" style="background:rgba(139,92,246,.04);margin:0 -24px;padding:10px 24px;border-bottom:1px solid var(--border)">
+          <div class="breakdown-label">🔧 Accessories<span>Cabling, breakers — ⅓ of equipment</span></div>
+          <div style="text-align:right">
+            <div class="breakdown-val" style="color:var(--purple)" id="calc-accessories">—</div>
+          </div>
+        </div>
+
+        <!-- Installation -->
+        <div class="breakdown-item">
+          <div class="breakdown-label">🛠 Installation
+            <span style="display:flex;align-items:center;gap:4px;margin-top:3px">
+              <input type="number" id="install-pct" value="10" min="0" max="100"
+                style="width:44px;padding:2px 5px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-size:11px;outline:none;text-align:center"
+                oninput="recalculate()">
+              <span style="font-size:10.5px;color:var(--text3)">% of total equipment</span>
+            </span>
+          </div>
+          <div class="breakdown-val" id="calc-install">—</div>
+        </div>
+
         <div class="breakdown-total">
           <div class="breakdown-total-label">Client Quote Total <span id="currency-badge" style="font-size:10px;font-weight:600;background:var(--surface3);color:var(--text3);padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">NGN</span></div>
           <div class="breakdown-total-val" id="calc-total">₦0</div>
@@ -995,8 +1038,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
     </div>
     <div class="card">
       <div class="card-title">System Config</div>
-      <div class="form-group"><label class="form-label">Peak Sun Hours (default)</label><input type="number" class="form-input" id="cfg-sun" value="4.5"></div>
-      <div class="form-group"><label class="form-label">Installation % of equipment</label><input type="number" class="form-input" id="cfg-install" value="12"></div>
+      <div class="form-group"><label class="form-label">Installation % of equipment</label><input type="number" class="form-input" id="cfg-install" value="10"></div>
       <div class="form-group"><label class="form-label">Battery DOD factor (Lithium)</label><input type="number" class="form-input" id="cfg-dod" value="1.25"></div>
       <div class="form-group"><label class="form-label">Battery DOD factor (Lead-Acid)</label><input type="number" class="form-input" id="cfg-dod-la" value="2.0"></div>
       <div class="divider"></div>
@@ -1006,6 +1048,14 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         <select class="form-input" id="cfg-battery-type">
           <option value="lithium">Lithium (LiFePO4)</option>
           <option value="lead">Lead-Acid</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Battery Brand</label>
+        <select class="form-input" id="cfg-battery-brand">
+          <option value="Itel">Itel</option>
+          <option value="Sako">Sako</option>
+          <option value="Restar">Restar</option>
+          <option value="SMS">SMS</option>
         </select>
       </div>
       <div class="form-row">
@@ -1044,17 +1094,29 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         </select>
       </div>
       <div class="form-row">
+        <div class="form-group"><label class="form-label">Peak Sun Hours</label>
+          <input type="number" class="form-input" id="cfg-sun" value="4.5" min="1" max="12" step="0.5">
+        </div>
         <div class="form-group"><label class="form-label">Individual Panel Capacity (W)</label>
           <input type="number" class="form-input" id="cfg-panel-w" value="400" min="1">
         </div>
-        <div class="form-group"><label class="form-label">Energy Used (%)</label>
-          <input type="number" class="form-input" id="cfg-energy-used-pct" value="90" min="1" max="100" step="1">
-        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Energy Used (%)</label>
+        <input type="number" class="form-input" id="cfg-energy-used-pct" value="90" min="1" max="100" step="1">
       </div>
       </details>
       <div class="divider"></div>
       <details open>
       <summary style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px"><span style="transition:transform .2s;display:inline-block">▸</span> Inverter Parameters</summary>
+      <div class="form-group"><label class="form-label">Inverter Brand</label>
+        <select class="form-input" id="cfg-inv-brand">
+          <option value="Growatt">Growatt</option>
+          <option value="Itel">Itel</option>
+          <option value="SMS">SMS</option>
+          <option value="Sako">Sako</option>
+          <option value="Restar">Restar</option>
+        </select>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Inverter Efficiency Factor</label>
           <input type="number" class="form-input" id="cfg-inv-eff" value="1.25" min="0.1" step="0.05">
@@ -1334,7 +1396,7 @@ const DEFAULT_PRICES = {
 
 const DEFAULT_CONFIG = {
   sunHours: 4.5,
-  installPct: 0.12,
+  installPct: 0.10,
   dodLithium: 1.25,
   dodLead: 2.0,
   battVoltage: 48,
@@ -1349,8 +1411,10 @@ const DEFAULT_CONFIG = {
   daysOfAutonomy: 1,
   inverterVoltage: 48,
   batteryType: 'lithium',
+  batteryBrand: 'Itel',
   panelBrand: 'Jinko Solar',
   inverterBrand: 'Growatt',
+  invBrand: 'Growatt',
   markup: 20,
   // Balance of System pricing modes — 'flat' or 'scaled'
   cablingMode: 'flat',         cablingPerKVA: 15000,
@@ -1854,10 +1918,16 @@ function calcSystem(appliances, opts) {
   const cBattery     = installedBattKWh * batteryPrice;
   const cInverter    = selectedInverterKVA * prices.inverterPerKVA;
   const cCabling     = cfg.cablingMode === 'scaled' ? selectedInverterKVA * (cfg.cablingPerKVA||0) : prices.cabling;
-  const cMounting    = cfg.mountingMode === 'scaled' ? numPanels * (cfg.mountingPerPanel||0)       : prices.mounting;
-  const cAccessories = cfg.accessoriesMode === 'scaled' ? selectedInverterKVA * (cfg.accessoriesPerKVA||0) : prices.accessories;
+  const cMounting    = cfg.mountingMode === 'scaled' ? numPanels * (cfg.mountingPerPanel||0) : prices.mounting;
+  // Accessories = ⅓ of (panels + battery + inverter)
+  const cAccessories = Math.round((cPanels + cBattery + cInverter) / 3);
   const equipTotal   = cPanels + cBattery + cInverter + cCabling + cMounting + cAccessories;
-  const cInstall     = equipTotal * (cfg.installPct || 0.12);
+  // Installation %: read from editable field if on page, else use config
+  const installPctInput = document.getElementById('install-pct');
+  const installPct = installPctInput
+    ? (parseFloat(installPctInput.value) || 10) / 100
+    : (cfg.installPct || 0.10);
+  const cInstall     = equipTotal * installPct;
   const subtotal     = equipTotal + cInstall;
   const markupAmt    = subtotal * markup;
   const total        = subtotal + markupAmt;
@@ -1921,9 +1991,31 @@ function recalculate() {
   set('calc-inverter-w',      fmt(Math.round(r.inverterSizeW)) + ' W');
   set('calc-inverter',        r.inverterKVA.toFixed(2) + ' kVA @ ' + (state.config.inverterVoltage||48) + 'V');
   set('calc-selected-inv',    (r.selectedInverterKVA||0).toFixed(1) + ' kVA @ ' + (state.config.inverterVoltage||48) + 'V');
-  set('calc-equip',           fmtCur(r.equipTotal));
-  set('calc-install',         fmtCur(r.cInstall));
-  set('calc-total',           fmtCur(r.total));
+  // Equipment breakdown items
+  const cfg = state.config;
+  const invBrand   = cfg.invBrand      || cfg.inverterBrand || 'Growatt';
+  const panelBrand = cfg.panelBrand    || 'Jinko Solar';
+  const battBrand  = cfg.batteryBrand  || 'Itel';
+  const battType   = cfg.batteryType   || 'lithium';
+  const battLabel  = battType === 'lithium' ? 'Lithium' : 'Lead-Acid';
+
+  set('calc-inv-desc',    `${(r.selectedInverterKVA||0).toFixed(1)} kVA · ${invBrand}`);
+  set('calc-inv-qty',     '1 unit');
+  set('calc-inv-price',   fmtCur(r.cInverter));
+
+  set('calc-panel-desc',  `${panelBrand} · ${cfg.individualPanelW||400}W each`);
+  set('calc-panel-qty',   `${r.numPanels||0} panels`);
+  set('calc-panel-price', fmtCur(r.cPanels));
+
+  set('calc-batt-desc',   `${battBrand} ${battLabel} · ${cfg.individualBattAh||200}Ah ${cfg.battVoltage||48}V`);
+  set('calc-batt-qty',    `${r.totalBatteries||0} units`);
+  set('calc-batt-price',  fmtCur(r.cBattery));
+
+  set('calc-accessories', fmtCur(r.cAccessories));
+  set('calc-install',     fmtCur(r.cInstall));
+  set('calc-total',       fmtCur(r.total));
+  // Keep calc-equip for any legacy references
+  set('calc-equip',       fmtCur(r.equipTotal));
   // Update currency badge
   const cb = document.getElementById('currency-badge');
   if (cb) cb.textContent = getActiveCurrency().code;
@@ -2769,8 +2861,10 @@ function populateSettingsForm() {
   document.getElementById('cfg-energy-used-pct').value = (cfg.energyUsedPct||0.90)*100;
   // New fields
   if (document.getElementById('cfg-battery-type')) document.getElementById('cfg-battery-type').value = cfg.batteryType||'lithium';
+  if (document.getElementById('cfg-battery-brand')) document.getElementById('cfg-battery-brand').value = cfg.batteryBrand||'Itel';
   if (document.getElementById('cfg-panel-brand')) document.getElementById('cfg-panel-brand').value = cfg.panelBrand||'Jinko Solar';
   if (document.getElementById('cfg-inverter-brand')) document.getElementById('cfg-inverter-brand').value = cfg.inverterBrand||'Growatt';
+  if (document.getElementById('cfg-inv-brand')) document.getElementById('cfg-inv-brand').value = cfg.invBrand||'Growatt';
   if (document.getElementById('cfg-markup')) document.getElementById('cfg-markup').value = cfg.markup||20;
   document.getElementById('cfg-inv-eff').value = cfg.inverterEfficiency||1.25;
   document.getElementById('cfg-selected-inv-kva').value = cfg.selectedInverterKVA||0;
@@ -2820,8 +2914,10 @@ function saveSettings() {
     accessoriesMode: document.getElementById('cfg-accessories-mode').value||'flat',
     accessoriesPerKVA: parseFloat(document.getElementById('cfg-accessories-per-kva').value)||8000,
     batteryType:   document.getElementById('cfg-battery-type')?.value   || 'lithium',
+    batteryBrand:  document.getElementById('cfg-battery-brand')?.value  || 'Itel',
     panelBrand:    document.getElementById('cfg-panel-brand')?.value    || 'Jinko Solar',
     inverterBrand: document.getElementById('cfg-inverter-brand')?.value || 'Growatt',
+    invBrand:      document.getElementById('cfg-inv-brand')?.value      || 'Growatt',
     markup:        parseFloat(document.getElementById('cfg-markup')?.value) || 20,
   };
   // Sync hidden inputs on new-audit page so calc picks up new values immediately
@@ -2840,7 +2936,7 @@ function syncHiddenAuditInputs() {
   const mk = document.getElementById('markup');
   if (bt) bt.value = cfg.batteryType   || 'lithium';
   if (pb) pb.value = cfg.panelBrand    || 'Jinko Solar';
-  if (ib) ib.value = cfg.inverterBrand || 'Growatt';
+  if (ib) ib.value = cfg.invBrand      || cfg.inverterBrand || 'Growatt';
   if (mk) mk.value = cfg.markup        || 20;
 }
 

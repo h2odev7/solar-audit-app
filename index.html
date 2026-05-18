@@ -1594,6 +1594,10 @@ function onCurrencyChange() {
   if (sel) state.company.currency = sel.value;
   recalculate();
   updateDashboard();
+  // Re-render catalog if on pricing page
+  if (document.getElementById('page-pricing')?.classList.contains('active')) {
+    renderCatalog();
+  }
   // Re-render quote modal if open
   if (window._currentQuote && document.getElementById('quote-modal')?.classList.contains('open')) {
     document.getElementById('modal-quote-body').innerHTML = renderQuoteHTML(window._currentQuote);
@@ -2585,38 +2589,44 @@ function renderCatalog() {
 
   let html = '';
 
+  const cur = getActiveCurrency();
+  const curCode = cur.code;
+
   brands.forEach((brand, bi) => {
     // Column headers per tab type
     let headers, rowFn;
     if (tab === 'panels') {
-      headers = '<th>Variant</th><th>Wattage (W)</th><th>Dealer Price (₦)</th><th>User Price (+10%)</th><th></th>';
+      headers = `<th>Variant</th><th>Wattage (W)</th><th>Base Price (NGN)</th><th>Dealer Price (${curCode})</th><th>User Price (+10%) (${curCode})</th><th></th>`;
       rowFn = (item, ii) => `
         <tr>
           <td><input class="catalog-inp" style="width:100px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)"></td>
           <td><input class="catalog-inp" type="number" style="width:80px" value="${item.watt}" oninput="updateCatalogItem('${tab}',${bi},${ii},'watt',this.value)"></td>
-          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)" title="Enter price in NGN"></td>
+          <td style="font-weight:600;color:var(--text)">${fmtCur(item.dealerPrice)}</td>
           <td class="catalog-user-price">${fmtCur(Math.round(item.dealerPrice * 1.1))}</td>
           <td><button class="catalog-del-btn" onclick="deleteCatalogItem('${tab}',${bi},${ii})">✕</button></td>
         </tr>`;
     } else if (tab === 'batteries') {
-      headers = '<th>Variant</th><th>Ah</th><th>Voltage (V)</th><th>Dealer Price (₦)</th><th>User Price (+10%)</th><th></th>';
+      headers = `<th>Variant</th><th>Ah</th><th>Voltage (V)</th><th>Base Price (NGN)</th><th>Dealer Price (${curCode})</th><th>User Price (+10%) (${curCode})</th><th></th>`;
       rowFn = (item, ii) => `
         <tr>
           <td><input class="catalog-inp" style="width:130px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)"></td>
           <td><input class="catalog-inp" type="number" style="width:70px" value="${item.ah}" oninput="updateCatalogItem('${tab}',${bi},${ii},'ah',this.value)"></td>
           <td><input class="catalog-inp" type="number" style="width:70px" value="${item.volt}" oninput="updateCatalogItem('${tab}',${bi},${ii},'volt',this.value)"></td>
-          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)" title="Enter price in NGN"></td>
+          <td style="font-weight:600;color:var(--text)">${fmtCur(item.dealerPrice)}</td>
           <td class="catalog-user-price">${fmtCur(Math.round(item.dealerPrice * 1.1))}</td>
           <td><button class="catalog-del-btn" onclick="deleteCatalogItem('${tab}',${bi},${ii})">✕</button></td>
         </tr>`;
     } else {
-      headers = '<th>Variant</th><th>kW</th><th>Voltage (V)</th><th>Dealer Price (₦)</th><th>User Price (+10%)</th><th></th>';
+      headers = `<th>Variant</th><th>kW</th><th>Voltage (V)</th><th>Base Price (NGN)</th><th>Dealer Price (${curCode})</th><th>User Price (+10%) (${curCode})</th><th></th>`;
       rowFn = (item, ii) => `
         <tr>
           <td><input class="catalog-inp" style="width:120px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)"></td>
           <td><input class="catalog-inp" type="number" style="width:70px" value="${item.kw}" oninput="updateCatalogItem('${tab}',${bi},${ii},'kw',this.value)"></td>
           <td><input class="catalog-inp" type="number" style="width:70px" value="${item.volt}" oninput="updateCatalogItem('${tab}',${bi},${ii},'volt',this.value)"></td>
-          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)" title="Enter price in NGN"></td>
+          <td style="font-weight:600;color:var(--text)">${fmtCur(item.dealerPrice)}</td>
           <td class="catalog-user-price">${fmtCur(Math.round(item.dealerPrice * 1.1))}</td>
           <td><button class="catalog-del-btn" onclick="deleteCatalogItem('${tab}',${bi},${ii})">✕</button></td>
         </tr>`;
@@ -2657,7 +2667,7 @@ function renderCatalog() {
         <div class="catalog-brand-header">
           <div>
             <div class="catalog-brand-name">${brand.brand}</div>
-            <div class="catalog-brand-sub">${brand.items.length} products · User price = Dealer + 10%</div>
+            <div class="catalog-brand-sub">${brand.items.length} products · Prices shown in ${curCode} · Enter base price in NGN</div>
           </div>
         </div>
         <div style="overflow-x:auto">

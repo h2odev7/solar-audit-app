@@ -110,7 +110,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .stat-value { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--text); margin: 8px 0 4px; letter-spacing: -.02em; }
 .stat-sub { font-size: 11.5px; color: var(--text3); }
 /* QUICK ACTION KEYS */
-.quick-actions { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 28px; }
+.quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
 .quick-action-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; padding: 30px 16px 26px;
@@ -271,6 +271,42 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .financing-monthly { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--purple); margin: 6px 0 2px; }
 .financing-sub { font-size: 11px; color: var(--text3); }
 @media(max-width:900px){ .pkg-grid { grid-template-columns: 1fr 1fr; } }
+/* INTERACTIVE VIZ */
+.viz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.viz-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 26px; }
+.viz-card-full { grid-column: 1 / -1; }
+.viz-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.viz-bar-track { height: 28px; background: var(--surface3); border-radius: 6px; overflow: hidden; margin-bottom: 8px; position: relative; }
+.viz-bar-fill { height: 100%; border-radius: 6px; transition: width .5s ease; display: flex; align-items: center; padding-left: 10px; font-size: 11px; font-weight: 700; color: white; min-width: 30px; }
+.viz-bar-label { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 4px; }
+.viz-bar-label span:first-child { color: var(--text2); }
+.viz-bar-label span:last-child { color: var(--text); font-weight: 600; }
+.viz-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+.viz-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text2); }
+.viz-legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.viz-info-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center; }
+.viz-info-val { font-family: var(--font-display); font-size: 24px; font-weight: 800; margin: 6px 0 2px; }
+.viz-info-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+/* CRM */
+.crm-pipeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; min-height: 400px; }
+.crm-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; }
+.crm-col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.crm-col-title { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .06em; }
+.crm-col-count { background: var(--surface3); color: var(--text3); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
+.crm-lead { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; cursor: default; transition: border-color .15s; }
+.crm-lead:hover { border-color: var(--border3); }
+.crm-lead-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.crm-lead-detail { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.crm-lead-note { font-size: 11px; color: var(--text2); margin-top: 6px; background: var(--surface3); padding: 6px 8px; border-radius: 5px; }
+.crm-lead-actions { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.crm-move-btn { font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border2); background: var(--surface3); color: var(--text2); cursor: pointer; transition: all .15s; }
+.crm-move-btn:hover { background: var(--accent); color: #08090c; border-color: var(--accent); }
+.crm-add-form { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px; }
+.crm-add-row { display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr auto; gap: 8px; align-items: end; }
+@media(max-width:900px){
+  .viz-grid { grid-template-columns: 1fr; }
+  .crm-pipeline { grid-template-columns: 1fr 1fr; }
+}
 .tier-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 20px; }
 .tier-card { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; position: relative; }
 .tier-card.tier-best { border-color: var(--accent); box-shadow: 0 0 30px rgba(249,115,22,0.12); }
@@ -294,7 +330,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .nav-item { justify-content: center; padding: 10px; }
   .page { padding: 20px 16px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-  .quick-actions { grid-template-columns: repeat(3, 1fr); }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
   .two-col,.col-6040 { grid-template-columns: 1fr; }
   .pkg-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -378,6 +414,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       </div>
       <div class="quick-action-label">Packages</div>
       <div class="quick-action-sub">Ready-made systems</div>
+    </button>
+    <button class="quick-action-btn" onclick="showPage('viz')">
+      <div class="quick-action-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);box-shadow:0 6px 20px rgba(6,182,212,0.3)">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      <div class="quick-action-label">Visualizations</div>
+      <div class="quick-action-sub">Charts &amp; graphs</div>
+    </button>
+    <button class="quick-action-btn" onclick="showPage('crm')">
+      <div class="quick-action-icon" style="background:linear-gradient(135deg,#14b8a6,#0d9488);box-shadow:0 6px 20px rgba(20,184,166,0.3)">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="quick-action-label">CRM Pipeline</div>
+      <div class="quick-action-sub">Track leads</div>
     </button>
   </div>
 
@@ -891,6 +941,109 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   <div class="pkg-grid" id="pkg-grid"></div>
 </div>
 
+<!-- VISUALIZATIONS PAGE -->
+<div class="page" id="page-viz">
+  <div class="page-header">
+    <div class="page-title">Interactive Visualizations</div>
+    <div class="page-desc">Real-time system breakdown — reflects your current audit inputs</div>
+  </div>
+  <div id="viz-empty" class="empty-state" style="display:none">
+    <div class="empty-icon">📊</div>
+    <div class="empty-title">No appliances selected</div>
+    <div class="empty-sub">Add appliances in the <a href="#" onclick="showPage('new-audit');return false" style="color:var(--accent)">New Audit</a> page to see visualizations</div>
+  </div>
+  <div id="viz-content">
+    <!-- 4 info cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+      <div class="viz-info-card">
+        <div class="viz-info-label">Total Load</div>
+        <div class="viz-info-val" id="viz-load" style="color:var(--accent)">0 W</div>
+      </div>
+      <div class="viz-info-card">
+        <div class="viz-info-label">Panels</div>
+        <div class="viz-info-val" id="viz-panels" style="color:var(--green)">0</div>
+      </div>
+      <div class="viz-info-card">
+        <div class="viz-info-label">Batteries</div>
+        <div class="viz-info-val" id="viz-batts" style="color:var(--blue)">0</div>
+      </div>
+      <div class="viz-info-card">
+        <div class="viz-info-label">Inverter</div>
+        <div class="viz-info-val" id="viz-inv" style="color:var(--yellow)">0 kVA</div>
+      </div>
+    </div>
+    <div class="viz-grid">
+      <!-- Load breakdown -->
+      <div class="viz-card">
+        <div class="viz-title">⚡ Load Breakdown by Appliance</div>
+        <div id="viz-load-bars"></div>
+      </div>
+      <!-- Energy breakdown -->
+      <div class="viz-card">
+        <div class="viz-title">🔋 Energy Demand Breakdown (Wh)</div>
+        <div id="viz-energy-bars"></div>
+      </div>
+      <!-- System cost pie -->
+      <div class="viz-card">
+        <div class="viz-title">💰 Cost Distribution</div>
+        <div id="viz-cost-donut" style="display:flex;align-items:center;gap:20px"></div>
+      </div>
+      <!-- System sizing summary -->
+      <div class="viz-card">
+        <div class="viz-title">📐 System Sizing</div>
+        <div id="viz-sizing-bars"></div>
+      </div>
+      <!-- Solar explainer -->
+      <div class="viz-card viz-card-full">
+        <div class="viz-title">☀️ How Your Solar System Works</div>
+        <div id="viz-flow" style="display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;padding:10px 0"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CRM PAGE -->
+<div class="page" id="page-crm">
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="page-title">CRM Pipeline</div>
+        <div class="page-desc">Track leads from first contact to closed deal</div>
+      </div>
+      <button class="btn btn-primary" onclick="toggleCrmForm()">＋ Add Lead</button>
+    </div>
+  </div>
+  <!-- Add Lead Form -->
+  <div class="crm-add-form" id="crm-add-form" style="display:none">
+    <div class="crm-add-row">
+      <div>
+        <div class="custom-appl-label">Client Name</div>
+        <input class="custom-appl-input" id="crm-name" placeholder="e.g. Chief Obi">
+      </div>
+      <div>
+        <div class="custom-appl-label">Phone</div>
+        <input class="custom-appl-input" id="crm-phone" placeholder="08012345678">
+      </div>
+      <div>
+        <div class="custom-appl-label">Property / Location</div>
+        <input class="custom-appl-input" id="crm-prop" placeholder="3BR Lekki">
+      </div>
+      <div>
+        <div class="custom-appl-label">Follow-up</div>
+        <input class="custom-appl-input" id="crm-followup" type="date">
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="btn-add-custom" onclick="addCrmLead()">Add</button>
+      </div>
+    </div>
+    <div style="margin-top:8px">
+      <div class="custom-appl-label">Notes (optional)</div>
+      <input class="custom-appl-input" id="crm-notes" placeholder="Interested in full home system, budget ~₦5M">
+    </div>
+  </div>
+  <div class="crm-pipeline" id="crm-pipeline"></div>
+</div>
+
 <!-- ADMIN PAGE -->
 <div class="page" id="page-admin">
   <div class="page-header">
@@ -1177,6 +1330,8 @@ function showPage(id) {
   if (id === 'new-audit') recalculate();
   if (id === 'admin') { loadAdminView(); populateAdminAudits(); }
   if (id === 'packages') renderPackages();
+  if (id === 'viz') renderVisualizations();
+  if (id === 'crm') renderCrmPipeline();
 }
 
 // ============================================================
@@ -2569,6 +2724,201 @@ function applyPackage(id) {
   toast.textContent = `✓ "${pkg.name}" package loaded`;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
+}
+
+// ============================================================
+// INTERACTIVE VISUALIZATIONS
+// ============================================================
+function renderVisualizations() {
+  const opts = {
+    batteryType: document.getElementById('battery-type')?.value || 'lithium',
+    markup: parseFloat(document.getElementById('markup')?.value) || 0
+  };
+  const r = calcSystem(state.appliances, opts);
+  if (!r || r.totalLoad === 0) {
+    document.getElementById('viz-empty').style.display = '';
+    document.getElementById('viz-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('viz-empty').style.display = 'none';
+  document.getElementById('viz-content').style.display = '';
+  const fmt = n => Math.round(n || 0).toLocaleString('en-NG');
+
+  // Info cards
+  document.getElementById('viz-load').textContent = fmt(r.totalLoad) + ' W';
+  document.getElementById('viz-panels').textContent = r.numPanels;
+  document.getElementById('viz-batts').textContent = r.totalBatteries;
+  document.getElementById('viz-inv').textContent = (r.selectedInverterKVA || 0).toFixed(1) + ' kVA';
+
+  // Colors
+  const COLORS = ['#f97316','#4f8ef7','#10d97a','#8b5cf6','#ec4899','#f59e0b','#06b6d4','#ef4444','#84cc16','#a855f7','#f43f5e','#14b8a6','#eab308','#6366f1'];
+
+  // — Load breakdown bars —
+  const devices = r.deviceRows || [];
+  const maxLoad = Math.max(...devices.map(d => d.deviceLoad), 1);
+  document.getElementById('viz-load-bars').innerHTML = devices.slice(0, 10).map((d, i) => {
+    const pct = (d.deviceLoad / maxLoad) * 100;
+    return `<div class="viz-bar-label"><span>${d.name}</span><span>${fmt(d.deviceLoad)} W (×${d.qty})</span></div>
+    <div class="viz-bar-track"><div class="viz-bar-fill" style="width:${pct}%;background:${COLORS[i % COLORS.length]}">${d.qty > 0 ? d.deviceLoad + 'W' : ''}</div></div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:13px">No active devices</div>';
+
+  // — Energy breakdown bars —
+  const maxEnergy = Math.max(...devices.map(d => d.deviceEnergy), 1);
+  document.getElementById('viz-energy-bars').innerHTML = devices.slice(0, 10).map((d, i) => {
+    const pct = (d.deviceEnergy / maxEnergy) * 100;
+    return `<div class="viz-bar-label"><span>${d.name} (${d.hours}h)</span><span>${fmt(d.deviceEnergy)} Wh</span></div>
+    <div class="viz-bar-track"><div class="viz-bar-fill" style="width:${pct}%;background:${COLORS[i % COLORS.length]}">${fmt(d.deviceEnergy)}</div></div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:13px">No energy data</div>';
+
+  // — Cost donut (SVG) —
+  const costs = [
+    { label: 'Panels', val: r.cPanels, color: '#f97316' },
+    { label: 'Battery', val: r.cBattery, color: '#4f8ef7' },
+    { label: 'Inverter', val: r.cInverter, color: '#10d97a' },
+    { label: 'Cabling', val: r.cCabling, color: '#8b5cf6' },
+    { label: 'Mounting', val: r.cMounting, color: '#f59e0b' },
+    { label: 'Accessories', val: r.cAccessories, color: '#ec4899' },
+    { label: 'Installation', val: r.cInstall, color: '#06b6d4' },
+  ].filter(c => c.val > 0);
+  const totalCost = costs.reduce((s, c) => s + c.val, 0) || 1;
+  let angle = 0;
+  const R = 70, CX = 85, CY = 85;
+  const arcs = costs.map(c => {
+    const frac = c.val / totalCost;
+    const start = angle;
+    angle += frac * 360;
+    const end = angle;
+    const sr = (Math.PI / 180) * (start - 90), er = (Math.PI / 180) * (end - 90);
+    const x1 = CX + R * Math.cos(sr), y1 = CY + R * Math.sin(sr);
+    const x2 = CX + R * Math.cos(er), y2 = CY + R * Math.sin(er);
+    const large = frac > 0.5 ? 1 : 0;
+    return `<path d="M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z" fill="${c.color}" opacity="0.85"/>`;
+  }).join('');
+  const legend = costs.map(c => `<div class="viz-legend-item"><div class="viz-legend-dot" style="background:${c.color}"></div>${c.label}: ₦${fmt(c.val)} (${Math.round(c.val/totalCost*100)}%)</div>`).join('');
+  document.getElementById('viz-cost-donut').innerHTML = `
+    <svg width="170" height="170" viewBox="0 0 170 170" style="flex-shrink:0">${arcs}<circle cx="${CX}" cy="${CY}" r="38" fill="var(--surface)"/><text x="${CX}" y="${CY - 4}" text-anchor="middle" fill="var(--text)" font-family="var(--font-display)" font-size="12" font-weight="800">₦${fmt(totalCost)}</text><text x="${CX}" y="${CY + 10}" text-anchor="middle" fill="var(--text3)" font-size="8">TOTAL</text></svg>
+    <div class="viz-legend" style="flex-direction:column;gap:6px">${legend}</div>`;
+
+  // — System sizing bars —
+  const sizings = [
+    { label: 'Solar Power', val: r.solarPowerW, unit: 'W', max: Math.max(r.solarPowerW, r.adjustedPanelW, r.inverterSizeW), color: '#f97316' },
+    { label: 'Adj. Panel Capacity', val: r.adjustedPanelW, unit: 'W', max: Math.max(r.solarPowerW, r.adjustedPanelW, r.inverterSizeW), color: '#10d97a' },
+    { label: 'Inverter Size', val: r.inverterSizeW, unit: 'W', max: Math.max(r.solarPowerW, r.adjustedPanelW, r.inverterSizeW), color: '#f5c842' },
+    { label: 'Battery Capacity', val: r.battCapacityWh, unit: 'Wh', max: r.battCapacityWh, color: '#4f8ef7' },
+  ];
+  document.getElementById('viz-sizing-bars').innerHTML = sizings.map(s => {
+    const pct = s.max > 0 ? (s.val / s.max) * 100 : 0;
+    return `<div class="viz-bar-label"><span>${s.label}</span><span>${fmt(s.val)} ${s.unit}</span></div>
+    <div class="viz-bar-track"><div class="viz-bar-fill" style="width:${Math.max(pct, 5)}%;background:${s.color}"></div></div>`;
+  }).join('');
+
+  // — Energy flow diagram —
+  const flowSteps = [
+    { icon: '☀️', label: 'Sun', sub: (state.config.sunHours||4.5) + 'h peak' },
+    { icon: '⬇️', label: '', sub: '' },
+    { icon: '🔲', label: 'Panels', sub: r.numPanels + '× ' + (state.config.individualPanelW||400) + 'W' },
+    { icon: '⬇️', label: '', sub: '' },
+    { icon: '⚡', label: 'Inverter', sub: (r.selectedInverterKVA||0).toFixed(1) + ' kVA' },
+    { icon: '↔️', label: '', sub: '' },
+    { icon: '🔋', label: 'Batteries', sub: r.totalBatteries + '× ' + (state.config.individualBattAh||200) + 'Ah' },
+    { icon: '⬇️', label: '', sub: '' },
+    { icon: '🏠', label: 'Your Home', sub: fmt(r.totalLoad) + 'W load' },
+  ];
+  document.getElementById('viz-flow').innerHTML = flowSteps.map(s =>
+    s.label ? `<div style="text-align:center;padding:8px 14px"><div style="font-size:28px">${s.icon}</div><div style="font-size:12px;font-weight:700;color:var(--text);margin-top:4px">${s.label}</div><div style="font-size:10.5px;color:var(--text3)">${s.sub}</div></div>`
+    : `<div style="font-size:18px;color:var(--text3);padding:0 2px">${s.icon}</div>`
+  ).join('');
+}
+
+// ============================================================
+// CRM PIPELINE
+// ============================================================
+const CRM_STAGES = ['New Lead', 'Contacted', 'Quoted', 'Won', 'Lost'];
+
+function getCrmLeads() {
+  try { return JSON.parse(localStorage.getItem('solariq_crm') || '[]'); }
+  catch { return []; }
+}
+function saveCrmLeads(leads) {
+  localStorage.setItem('solariq_crm', JSON.stringify(leads));
+}
+
+function toggleCrmForm() {
+  const form = document.getElementById('crm-add-form');
+  form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+function addCrmLead() {
+  const name = document.getElementById('crm-name').value.trim();
+  if (!name) { alert('Please enter a client name.'); return; }
+  const leads = getCrmLeads();
+  leads.push({
+    id: 'lead_' + Date.now(),
+    name,
+    phone: document.getElementById('crm-phone').value.trim(),
+    property: document.getElementById('crm-prop').value.trim(),
+    notes: document.getElementById('crm-notes').value.trim(),
+    followup: document.getElementById('crm-followup').value,
+    stage: 'New Lead',
+    createdAt: new Date().toISOString(),
+  });
+  saveCrmLeads(leads);
+  document.getElementById('crm-name').value = '';
+  document.getElementById('crm-phone').value = '';
+  document.getElementById('crm-prop').value = '';
+  document.getElementById('crm-notes').value = '';
+  document.getElementById('crm-followup').value = '';
+  renderCrmPipeline();
+}
+
+function moveLead(id, newStage) {
+  const leads = getCrmLeads();
+  const lead = leads.find(l => l.id === id);
+  if (lead) lead.stage = newStage;
+  saveCrmLeads(leads);
+  renderCrmPipeline();
+}
+
+function deleteLead(id) {
+  if (!confirm('Delete this lead?')) return;
+  const leads = getCrmLeads().filter(l => l.id !== id);
+  saveCrmLeads(leads);
+  renderCrmPipeline();
+}
+
+function renderCrmPipeline() {
+  const leads = getCrmLeads();
+  const container = document.getElementById('crm-pipeline');
+  if (!container) return;
+
+  const stageColors = { 'New Lead': '#4f8ef7', 'Contacted': '#f59e0b', 'Quoted': '#8b5cf6', 'Won': '#10d97a', 'Lost': '#f04545' };
+
+  container.innerHTML = CRM_STAGES.map(stage => {
+    const stageLeads = leads.filter(l => l.stage === stage);
+    const otherStages = CRM_STAGES.filter(s => s !== stage);
+    return `
+      <div class="crm-col" style="border-top:3px solid ${stageColors[stage]}">
+        <div class="crm-col-header">
+          <div class="crm-col-title">${stage}</div>
+          <div class="crm-col-count">${stageLeads.length}</div>
+        </div>
+        <div style="flex:1;overflow-y:auto">
+          ${stageLeads.length ? stageLeads.map(l => {
+            const followStr = l.followup ? `<div style="font-size:10px;color:${new Date(l.followup) < new Date() ? 'var(--red)' : 'var(--green)'};margin-top:4px">📅 ${new Date(l.followup).toLocaleDateString('en-NG')}</div>` : '';
+            return `<div class="crm-lead">
+              <div class="crm-lead-name">${l.name}</div>
+              <div class="crm-lead-detail">${[l.phone, l.property].filter(Boolean).join(' · ') || '—'}</div>
+              ${l.notes ? `<div class="crm-lead-note">${l.notes}</div>` : ''}
+              ${followStr}
+              <div class="crm-lead-actions">
+                ${otherStages.map(s => `<button class="crm-move-btn" onclick="moveLead('${l.id}','${s}')">${s === 'Won' ? '✓ Won' : s === 'Lost' ? '✗ Lost' : '→ ' + s}</button>`).join('')}
+                <button class="crm-move-btn" style="border-color:rgba(240,69,69,.3);color:var(--red)" onclick="deleteLead('${l.id}')">🗑</button>
+              </div>
+            </div>`;
+          }).join('') : `<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:12px">No leads</div>`}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ============================================================

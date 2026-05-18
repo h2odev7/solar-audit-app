@@ -87,6 +87,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .pkg-banner-desc { font-size: 11.5px; opacity: .7; margin-top: 1px; }
 .pkg-banner-close { background: none; border: none; color: inherit; opacity: .5; cursor: pointer; font-size: 16px; padding: 4px; transition: opacity .15s; }
 .pkg-banner-close:hover { opacity: 1; }
+/* COLLAPSIBLE SETTINGS */
+details summary::-webkit-details-marker { display: none; }
+details summary { user-select: none; }
+details[open] > summary span:first-child { transform: rotate(90deg); }
 .user-chip { display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); width: 44px; height: 44px; }
 .user-avatar { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #c49a10); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #08090c; flex-shrink: 0; }
 .user-info { flex: 1; min-width: 0; }
@@ -163,10 +167,31 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .data-table td.mono { font-family: monospace; font-size: 12.5px; color: var(--text); }
 .data-table td.bold { color: var(--text); font-weight: 600; }
 .appl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.appl-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -10px; padding: 0 10px; }
+@media(max-width:900px){
+  .appl-table { min-width: 520px; }
+  .appl-table th, .appl-table td { padding: 7px 8px; font-size: 12px; }
+  .hours-input { width: 44px; padding: 4px 6px; font-size: 12px; }
+  .qty-btn { width: 22px; height: 22px; font-size: 13px; }
+}
 .appl-table th { text-align: left; padding: 9px 10px; font-size: 9.5px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--border2); background: var(--surface2); }
 .appl-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .appl-table tr:last-child td { border-bottom: none; }
 .appl-table tr:hover td { background: rgba(245,200,66,.02); }
+@media(max-width:900px){
+  .appl-table { font-size: 12px; }
+  .appl-table th:nth-child(4), .appl-table td:nth-child(4) { display: none; }
+  .appl-table th { padding: 7px 6px; font-size: 8.5px; }
+  .appl-table td { padding: 6px 6px; }
+  .appl-name { font-size: 12px; }
+  .appl-watts-badge { font-size: 8.5px; padding: 1px 4px; margin-left: 3px; }
+  .hours-input { width: 42px; padding: 4px 5px; font-size: 12px; }
+  .qty-btn { width: 22px; height: 22px; font-size: 12px; }
+  .appl-qty-ctrl { gap: 4px; }
+  .qty-val { font-size: 13px; min-width: 16px; }
+  .custom-appl-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .custom-appl-row > div:first-child { grid-column: 1 / -1; }
+}
 .appl-name { font-weight: 600; color: var(--text); font-size: 13px; }
 .appl-watts-badge { display: inline-block; font-size: 9.5px; color: var(--text3); background: var(--surface3); padding: 1px 6px; border-radius: 4px; margin-left: 5px; font-family: monospace; }
 .appl-qty-ctrl { display: flex; align-items: center; gap: 7px; }
@@ -352,7 +377,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .nav-item span { display: none; }
   .page { padding: 20px 16px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .quick-action-btn { padding: 18px 10px 16px; gap: 10px; }
+  .quick-action-icon { width: 48px; height: 48px; border-radius: 14px; }
+  .quick-action-label { font-size: 12px; }
+  .quick-action-sub { font-size: 10px; }
   .two-col,.col-6040 { grid-template-columns: 1fr; }
   .pkg-grid { grid-template-columns: 1fr 1fr; }
   /* Scroll perf: remove sticky, reduce transitions, kill backdrop-filter */
@@ -870,7 +899,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <div class="form-group"><label class="form-label">Battery DOD factor (Lithium)</label><input type="number" class="form-input" id="cfg-dod" value="1.25"></div>
       <div class="form-group"><label class="form-label">Battery DOD factor (Lead-Acid)</label><input type="number" class="form-input" id="cfg-dod-la" value="2.0"></div>
       <div class="divider"></div>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Battery Capacity Parameters</div>
+      <details open>
+      <summary style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px"><span style="transition:transform .2s;display:inline-block">▸</span> Battery Capacity Parameters</summary>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Battery Voltage (V)</label>
           <select class="form-input" id="cfg-batt-voltage">
@@ -894,8 +924,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <input type="number" class="form-input" id="cfg-days-autonomy" value="1" min="1" max="7">
         </div>
       </div>
+      </details>
       <div class="divider"></div>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Solar Panel Parameters</div>
+      <details open>
+      <summary style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px"><span style="transition:transform .2s;display:inline-block">▸</span> Solar Panel Parameters</summary>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Individual Panel Capacity (W)</label>
           <input type="number" class="form-input" id="cfg-panel-w" value="400" min="1">
@@ -904,8 +936,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <input type="number" class="form-input" id="cfg-energy-used-pct" value="90" min="1" max="100" step="1">
         </div>
       </div>
+      </details>
       <div class="divider"></div>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Inverter Parameters</div>
+      <details open>
+      <summary style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px"><span style="transition:transform .2s;display:inline-block">▸</span> Inverter Parameters</summary>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Inverter Efficiency Factor</label>
           <input type="number" class="form-input" id="cfg-inv-eff" value="1.25" min="0.1" step="0.05">
@@ -927,8 +961,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <option value="48" selected>48V</option>
         </select>
       </div>
+      </details>
       <div class="divider"></div>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Balance of System Pricing</div>
+      <details open>
+      <summary style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px"><span style="transition:transform .2s;display:inline-block">▸</span> Balance of System Pricing</summary>
       <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Each item can be a flat fee (set in Pricing tab) or scaled per unit. Scaled keeps small systems affordable.</div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Cabling Mode</label>
@@ -963,6 +999,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
           <input type="number" class="form-input" id="cfg-accessories-per-kva" value="8000" min="0" step="500">
         </div>
       </div>
+      </details>
       <button class="btn btn-primary" onclick="saveSettings()">Save Config</button>
     </div>
   </div>
@@ -1407,6 +1444,7 @@ function renderApplianceGrid() {
   }).join('');
 
   grid.innerHTML = `
+    <div class="appl-table-wrap">
     <table class="appl-table" id="appl-table-main">
       <thead>
         <tr>
@@ -1430,7 +1468,8 @@ function renderApplianceGrid() {
           <td><span style="color:var(--accent);font-family:monospace;font-size:14px;font-weight:700" id="tfoot-adjusted">0 Wh</span></td>
         </tr>
       </tfoot>
-    </table>`;
+    </table>
+    </div>`;
 }
 
 function adjustQty(id, delta) {
@@ -1695,6 +1734,14 @@ async function saveAudit() {
   const panelBrand = document.getElementById('panel-brand').value;
   const markup = parseFloat(document.getElementById('markup').value)||0;
 
+  // Savings comparison inputs
+  const savingsInputs = {
+    tariff: parseFloat(document.getElementById('sc-tariff')?.value) || 0,
+    gridHrs: parseFloat(document.getElementById('sc-grid-hrs')?.value) || 0,
+    genLitres: parseFloat(document.getElementById('sc-gen-litres')?.value) || 0,
+    fuelPrice: parseFloat(document.getElementById('sc-fuel-price')?.value) || 0,
+  };
+
   const opts = { batteryType, markup };
   const r = calcSystem(state.appliances, opts);
 
@@ -1704,6 +1751,8 @@ async function saveAudit() {
     clientName, clientPhone, propertyType, location,
     gridHours, batteryType, inverterBrand, panelBrand, markup,
     appliances: JSON.parse(JSON.stringify(state.appliances)),
+    customAppliances: JSON.parse(JSON.stringify(state.customAppliances || [])),
+    savingsInputs,
     result: r
   };
 
@@ -1999,7 +2048,7 @@ function downloadPDF() {
   // ════════════════════════════════════════════════════════════════
   // COST BREAKDOWN
   // ════════════════════════════════════════════════════════════════
-  sectionHeader('COST BREAKDOWN', 'Amount (N)');
+  sectionHeader('COST BREAKDOWN', 'Amount (NGN)');
 
   const items = [
     ['Solar Panels',        r.cPanels],
@@ -2010,7 +2059,7 @@ function downloadPDF() {
     ['Accessories',         r.cAccessories],
     ['Installation & Labour', r.cInstall],
   ];
-  items.forEach(([l, v], i) => tableRow(l, 'N ' + fmt(v || 0), i));
+  items.forEach(([l, v], i) => tableRow(l, 'NGN ' + fmt(v || 0), i));
   y += 6;
 
   // ── Total box ────────────────────────────────────────────────
@@ -2021,7 +2070,7 @@ function downloadPDF() {
   doc.rect(MARGIN, y, CONTENT_W, 22);
   doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(...ORANGE);
   doc.text('TOTAL INVESTMENT', MARGIN + 4, y + 9);
-  doc.setFontSize(15); doc.text('N ' + fmt(r.total || 0), MARGIN + CONTENT_W - 2, y + 15, { align: 'right' });
+  doc.setFontSize(15); doc.text('NGN ' + fmt(r.total || 0), MARGIN + CONTENT_W - 2, y + 15, { align: 'right' });
   y += 28;
 
   // ── Footer on last page ─────────────────────────────────────
@@ -2361,6 +2410,38 @@ function updateDashboard() {
         </div>`;
     }).join('');
   }
+
+  // Dynamic load distribution from audits or current appliances
+  const dashBar = document.getElementById('dash-bar');
+  if (dashBar) {
+    // Aggregate device loads across all saved audits, or use current state
+    const loadMap = {};
+    if (n > 0) {
+      state.audits.forEach(a => {
+        (a.result?.deviceRows || []).forEach(d => {
+          loadMap[d.name] = (loadMap[d.name] || 0) + d.deviceLoad;
+        });
+      });
+      // Average across audits
+      Object.keys(loadMap).forEach(k => loadMap[k] = Math.round(loadMap[k] / n));
+    } else {
+      // Use current appliance state
+      const totals = calculateTotalsWithCustom();
+      (totals.deviceRows || []).forEach(d => {
+        loadMap[d.name] = d.deviceLoad;
+      });
+    }
+    const entries = Object.entries(loadMap).sort((a,b) => b[1] - a[1]).slice(0, 6);
+    const maxLoad = entries.length ? entries[0][1] : 1;
+    if (entries.length) {
+      dashBar.innerHTML = entries.map(([name, load]) => {
+        const pct = Math.max((load / maxLoad) * 100, 3);
+        return `<div class="mini-bar-item"><div class="mini-bar-label">${name}</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:${pct}%"></div></div><div class="mini-bar-val">${load.toLocaleString('en-NG')}W</div></div>`;
+      }).join('');
+    } else {
+      dashBar.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:10px 0">No load data yet — create an audit to see distribution</div>';
+    }
+  }
 }
 
 function populateAdminAudits() {
@@ -2555,12 +2636,15 @@ function generateTieredQuote() {
         </div>
         <div class="tier-footer">
           <button class="btn ${isBest ? 'btn-primary' : 'btn-secondary'}" style="width:100%;justify-content:center" 
-            onclick="generateQuote({id:'temp',clientName:'${clientName.replace(/'/g,"\\'")}',clientPhone:'${clientPhone}',location:'${location}',propertyType:'${propertyType}',batteryType:'${t.batteryType}',inverterBrand:'${inverterBrand}',panelBrand:'${panelBrand}',markup:${markup},appliances:JSON.parse(JSON.stringify(state.appliances)),result:calcSystem(state.appliances,{batteryType:'${t.batteryType}',markup:${markup},backupDays:${t.backupDays}})})">
+            onclick="generateTierQuote('${t.batteryType}',${t.backupDays})">
             Generate ${t.label} Quote
           </button>
         </div>
       </div>`;
   }).join('');
+
+  // Store tier params for safe onclick
+  window._tierQuoteParams = { clientName, clientPhone, location, propertyType, inverterBrand, panelBrand, markup };
 
   document.getElementById('tiered-modal-body').innerHTML = `
     <div style="margin-bottom:16px;padding:14px 18px;background:var(--surface2);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center">
@@ -2580,6 +2664,24 @@ function generateTieredQuote() {
     </div>`;
 
   document.getElementById('tiered-modal').classList.add('open');
+}
+
+// Safe tier quote generator — avoids inline string escaping
+function generateTierQuote(batteryType, backupDays) {
+  const p = window._tierQuoteParams || {};
+  generateQuote({
+    id: 'temp',
+    clientName: p.clientName || 'Client',
+    clientPhone: p.clientPhone || '',
+    location: p.location || '',
+    propertyType: p.propertyType || '',
+    batteryType,
+    inverterBrand: p.inverterBrand || '',
+    panelBrand: p.panelBrand || '',
+    markup: p.markup || 0,
+    appliances: JSON.parse(JSON.stringify(state.appliances)),
+    result: calcSystem(state.appliances, { batteryType, markup: p.markup || 0, backupDays })
+  });
 }
 
 // ============================================================
@@ -2994,6 +3096,28 @@ function renderCrmPipeline() {
         </div>
       </div>`;
   }).join('');
+}
+
+// ============================================================
+// ADMIN STUBS — local-only mode, no Firebase
+// ============================================================
+function loadAdminView() {
+  const el = document.getElementById('admin-users-list');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="audit-item" style="cursor:default">
+      <div class="audit-icon" style="background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(249,115,22,.1))">👑</div>
+      <div class="audit-meta">
+        <div class="audit-title">Local Admin</div>
+        <div class="audit-sub">admin · Full access · Running in local mode</div>
+      </div>
+      <span class="badge badge-orange">Admin</span>
+    </div>
+    <div style="font-size:12px;color:var(--text3);padding:12px 0">Staff management requires cloud mode (Firebase). Currently running in local-only mode.</div>`;
+}
+
+function adminCreateStaff() {
+  alert('Staff accounts require cloud mode (Firebase). Currently running in local-only mode.');
 }
 
 // ============================================================

@@ -767,7 +767,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
           <div class="breakdown-val" id="calc-install">₦0</div>
         </div>
         <div class="breakdown-total">
-          <div class="breakdown-total-label">Client Quote Total</div>
+          <div class="breakdown-total-label">Client Quote Total <span id="currency-badge" style="font-size:10px;font-weight:600;background:var(--surface3);color:var(--text3);padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">NGN</span></div>
           <div class="breakdown-total-val" id="calc-total">₦0</div>
         </div>
 
@@ -890,6 +890,12 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
       <div class="form-group"><label class="form-label">Phone</label><input type="text" class="form-input" id="co-phone" placeholder="0800 000 0000"></div>
       <div class="form-group"><label class="form-label">Email</label><input type="text" class="form-input" id="co-email" placeholder="info@solariq.ng"></div>
       <div class="form-group"><label class="form-label">Website</label><input type="text" class="form-input" id="co-web" placeholder="www.solariq.ng"></div>
+      <div class="form-group">
+        <label class="form-label">Currency</label>
+        <select class="form-input" id="co-currency" onchange="onCurrencyChange()">
+        </select>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">All prices will display in the selected currency. Exchange rates are approximate.</div>
+      </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save Company Info</button>
     </div>
     <div class="card">
@@ -1243,7 +1249,8 @@ const DEFAULT_COMPANY = {
   address: '123 Energy Way, Abuja FCT',
   phone: '0800 000 0000',
   email: 'info@solariq.ng',
-  web: 'www.solariq.ng'
+  web: 'www.solariq.ng',
+  currency: 'USD',
 };
 
 // ============================================================
@@ -1341,6 +1348,112 @@ function saveToStorage() {
     customAppliances: state.customAppliances || [],
     activePriceTab:   state.activePriceTab   || 'user',
   }));
+}
+
+// ============================================================
+// CURRENCY SYSTEM
+// ============================================================
+const CURRENCIES = [
+  { code:'NGN', symbol:'₦',   name:'Nigerian Naira',           rate:1         },
+  { code:'USD', symbol:'$',   name:'US Dollar',                rate:0.00065   },
+  { code:'GBP', symbol:'£',   name:'British Pound',            rate:0.00051   },
+  { code:'EUR', symbol:'€',   name:'Euro',                     rate:0.00060   },
+  { code:'CAD', symbol:'C$',  name:'Canadian Dollar',          rate:0.00089   },
+  { code:'AUD', symbol:'A$',  name:'Australian Dollar',        rate:0.00099   },
+  { code:'CHF', symbol:'Fr',  name:'Swiss Franc',              rate:0.00057   },
+  { code:'JPY', symbol:'¥',   name:'Japanese Yen',             rate:0.097     },
+  { code:'CNY', symbol:'¥',   name:'Chinese Yuan',             rate:0.0047    },
+  { code:'INR', symbol:'₹',   name:'Indian Rupee',             rate:0.054     },
+  { code:'ZAR', symbol:'R',   name:'South African Rand',       rate:0.012     },
+  { code:'GHS', symbol:'GH₵', name:'Ghanaian Cedi',            rate:0.010     },
+  { code:'KES', symbol:'KSh', name:'Kenyan Shilling',          rate:0.085     },
+  { code:'TZS', symbol:'TSh', name:'Tanzanian Shilling',       rate:1.68      },
+  { code:'UGX', symbol:'USh', name:'Ugandan Shilling',         rate:2.41      },
+  { code:'XOF', symbol:'CFA', name:'West African CFA Franc',   rate:0.39      },
+  { code:'XAF', symbol:'CFA', name:'Central African CFA Franc',rate:0.39      },
+  { code:'EGP', symbol:'E£',  name:'Egyptian Pound',           rate:0.032     },
+  { code:'MAD', symbol:'د.م',name:'Moroccan Dirham',           rate:0.0065    },
+  { code:'ETB', symbol:'Br',  name:'Ethiopian Birr',           rate:0.038     },
+  { code:'AED', symbol:'د.إ', name:'UAE Dirham',               rate:0.0024    },
+  { code:'SAR', symbol:'﷼',   name:'Saudi Riyal',              rate:0.0024    },
+  { code:'QAR', symbol:'QR',  name:'Qatari Riyal',             rate:0.0024    },
+  { code:'BRL', symbol:'R$',  name:'Brazilian Real',           rate:0.0037    },
+  { code:'MXN', symbol:'MX$', name:'Mexican Peso',             rate:0.013     },
+  { code:'SGD', symbol:'S$',  name:'Singapore Dollar',         rate:0.00087   },
+  { code:'HKD', symbol:'HK$', name:'Hong Kong Dollar',         rate:0.0051    },
+  { code:'NZD', symbol:'NZ$', name:'New Zealand Dollar',       rate:0.0011    },
+  { code:'SEK', symbol:'kr',  name:'Swedish Krona',            rate:0.0067    },
+  { code:'NOK', symbol:'kr',  name:'Norwegian Krone',          rate:0.0067    },
+  { code:'DKK', symbol:'kr',  name:'Danish Krone',             rate:0.0045    },
+  { code:'PLN', symbol:'zł',  name:'Polish Zloty',             rate:0.0026    },
+  { code:'CZK', symbol:'Kč',  name:'Czech Koruna',             rate:0.015     },
+  { code:'HUF', symbol:'Ft',  name:'Hungarian Forint',         rate:0.24      },
+  { code:'RUB', symbol:'₽',   name:'Russian Ruble',            rate:0.060     },
+  { code:'TRY', symbol:'₺',   name:'Turkish Lira',             rate:0.021     },
+  { code:'PKR', symbol:'₨',   name:'Pakistani Rupee',          rate:0.18      },
+  { code:'BDT', symbol:'৳',   name:'Bangladeshi Taka',         rate:0.071     },
+  { code:'IDR', symbol:'Rp',  name:'Indonesian Rupiah',        rate:10.5      },
+  { code:'MYR', symbol:'RM',  name:'Malaysian Ringgit',        rate:0.0030    },
+  { code:'PHP', symbol:'₱',   name:'Philippine Peso',          rate:0.037     },
+  { code:'THB', symbol:'฿',   name:'Thai Baht',                rate:0.023     },
+  { code:'VND', symbol:'₫',   name:'Vietnamese Dong',          rate:16.3      },
+  { code:'KRW', symbol:'₩',   name:'South Korean Won',         rate:0.89      },
+  { code:'TWD', symbol:'NT$', name:'Taiwan Dollar',            rate:0.021     },
+  { code:'CLP', symbol:'CL$', name:'Chilean Peso',             rate:0.63      },
+  { code:'COP', symbol:'CO$', name:'Colombian Peso',           rate:2.76      },
+  { code:'PEN', symbol:'S/',  name:'Peruvian Sol',             rate:0.0025    },
+  { code:'ARS', symbol:'AR$', name:'Argentine Peso',           rate:0.65      },
+  { code:'UAH', symbol:'₴',   name:'Ukrainian Hryvnia',        rate:0.027     },
+  { code:'RON', symbol:'lei', name:'Romanian Leu',             rate:0.0030    },
+  { code:'BGN', symbol:'лв',  name:'Bulgarian Lev',            rate:0.0012    },
+  { code:'HRK', symbol:'kn',  name:'Croatian Kuna',            rate:0.0044    },
+  { code:'RSD', symbol:'din', name:'Serbian Dinar',            rate:0.070     },
+  { code:'IQD', symbol:'ع.د', name:'Iraqi Dinar',              rate:0.85      },
+  { code:'JOD', symbol:'JD',  name:'Jordanian Dinar',          rate:0.00046  },
+  { code:'KWD', symbol:'KD',  name:'Kuwaiti Dinar',            rate:0.00020  },
+  { code:'LKR', symbol:'Rs',  name:'Sri Lankan Rupee',         rate:0.20      },
+  { code:'MMK', symbol:'K',   name:'Myanmar Kyat',             rate:1.36      },
+  { code:'NPR', symbol:'रू',  name:'Nepalese Rupee',           rate:0.087     },
+  { code:'BHD', symbol:'BD',  name:'Bahraini Dinar',           rate:0.00024  },
+  { code:'OMR', symbol:'ر.ع', name:'Omani Rial',               rate:0.00025  },
+];
+
+function populateCurrencyDropdown() {
+  const sel = document.getElementById('co-currency');
+  if (!sel) return;
+  sel.innerHTML = CURRENCIES.map(c =>
+    `<option value="${c.code}">${c.symbol} — ${c.code} — ${c.name}</option>`
+  ).join('');
+  sel.value = state.company.currency || 'NGN';
+}
+
+function getActiveCurrency() {
+  const code = state.company.currency || 'NGN';
+  return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+}
+
+// Convert a Naira amount to the active currency
+function fmtCur(amountNGN) {
+  const cur = getActiveCurrency();
+  const converted = amountNGN * cur.rate;
+  // Format: use locale, trim decimals for large numbers
+  const abs = Math.abs(converted);
+  let str;
+  if (abs >= 1000000)      str = (converted / 1000000).toFixed(2) + 'M';
+  else if (abs >= 1000)    str = Math.round(converted).toLocaleString('en-US');
+  else if (abs >= 1)       str = converted.toFixed(2);
+  else                     str = converted.toFixed(4);
+  return cur.symbol + str;
+}
+
+// Just the symbol
+function curSymbol() { return getActiveCurrency().symbol; }
+
+function onCurrencyChange() {
+  const sel = document.getElementById('co-currency');
+  if (sel) state.company.currency = sel.value;
+  recalculate();
+  updateDashboard();
 }
 
 // ============================================================
@@ -1657,9 +1770,12 @@ function recalculate() {
   set('calc-inverter-w',      fmt(Math.round(r.inverterSizeW)) + ' W');
   set('calc-inverter',        r.inverterKVA.toFixed(2) + ' kVA @ ' + (state.config.inverterVoltage||48) + 'V');
   set('calc-selected-inv',    (r.selectedInverterKVA||0).toFixed(1) + ' kVA @ ' + (state.config.inverterVoltage||48) + 'V');
-  set('calc-equip',           '₦' + fmt(r.equipTotal));
-  set('calc-install',         '₦' + fmt(r.cInstall));
-  set('calc-total',           '₦' + fmt(r.total));
+  set('calc-equip',           fmtCur(r.equipTotal));
+  set('calc-install',         fmtCur(r.cInstall));
+  set('calc-total',           fmtCur(r.total));
+  // Update currency badge
+  const cb = document.getElementById('currency-badge');
+  if (cb) cb.textContent = getActiveCurrency().code;
 
   // Savings comparison + financing — only relevant on New Audit page
   if (document.getElementById('page-new-audit')?.classList.contains('active')) {
@@ -1776,20 +1892,20 @@ async function generateQuote(auditOverride) {
     </table>
     <div class="quote-section-title">Cost Breakdown</div>
     <table class="quote-table">
-      <tr><th>Item</th><th style="text-align:right">Amount (₦)</th></tr>
-      <tr><td>Solar Panels (${fmt(r.panelW)}W)</td><td style="text-align:right">${fmt(r.cPanels)}</td></tr>
-      <tr><td>Battery Bank (${r.batteryKWh.toFixed(1)} kWh)</td><td style="text-align:right">${fmt(r.cBattery)}</td></tr>
-      <tr><td>Inverter/Charger (${r.inverterKVA.toFixed(1)} kVA)</td><td style="text-align:right">${fmt(r.cInverter)}</td></tr>
-      <tr><td>Cabling &amp; Wiring</td><td style="text-align:right">${fmt(r.cCabling)}</td></tr>
-      <tr><td>Mounting Structure</td><td style="text-align:right">${fmt(r.cMounting)}</td></tr>
-      <tr><td>Accessories &amp; Protections</td><td style="text-align:right">${fmt(r.cAccessories)}</td></tr>
-      <tr><td>Installation &amp; Labour</td><td style="text-align:right">${fmt(r.cInstall)}</td></tr>
+      <tr><th>Item</th><th style="text-align:right">Amount (${getActiveCurrency().code})</th></tr>
+      <tr><td>Solar Panels (${fmt(r.panelW)}W)</td><td style="text-align:right">${fmtCur(r.cPanels)}</td></tr>
+      <tr><td>Battery Bank (${r.batteryKWh.toFixed(1)} kWh)</td><td style="text-align:right">${fmtCur(r.cBattery)}</td></tr>
+      <tr><td>Inverter/Charger (${r.inverterKVA.toFixed(1)} kVA)</td><td style="text-align:right">${fmtCur(r.cInverter)}</td></tr>
+      <tr><td>Cabling &amp; Wiring</td><td style="text-align:right">${fmtCur(r.cCabling)}</td></tr>
+      <tr><td>Mounting Structure</td><td style="text-align:right">${fmtCur(r.cMounting)}</td></tr>
+      <tr><td>Accessories &amp; Protections</td><td style="text-align:right">${fmtCur(r.cAccessories)}</td></tr>
+      <tr><td>Installation &amp; Labour</td><td style="text-align:right">${fmtCur(r.cInstall)}</td></tr>
     </table>
     <div class="quote-total-section">
-      <div class="quote-total-row"><span>Equipment Subtotal</span><span>₦${fmt(r.equipTotal)}</span></div>
-      <div class="quote-total-row"><span>Installation (${state.config.installPct*100}%)</span><span>₦${fmt(r.cInstall)}</span></div>
-      ${audit.markup>0?`<div class="quote-total-row"><span>Margin (${audit.markup}%)</span><span>₦${fmt(r.markupAmt)}</span></div>`:''}
-      <div class="quote-total-final"><span>TOTAL INVESTMENT</span><span>₦${fmt(r.total)}</span></div>
+      <div class="quote-total-row"><span>Equipment Subtotal</span><span>${fmtCur(r.equipTotal)}</span></div>
+      <div class="quote-total-row"><span>Installation (${state.config.installPct*100}%)</span><span>${fmtCur(r.cInstall)}</span></div>
+      ${audit.markup>0?`<div class="quote-total-row"><span>Margin (${audit.markup}%)</span><span>${fmtCur(r.markupAmt)}</span></div>`:''}
+      <div class="quote-total-final"><span>TOTAL INVESTMENT</span><span>${fmtCur(r.total)}</span></div>
     </div>
     <div style="margin-top:28px">
       <div class="quote-section-title">Audit Report Summary</div>
@@ -2057,7 +2173,7 @@ function renderAuditsList() {
       <div class="audit-badges">
         <span class="badge badge-orange">${fmt(a.result.totalLoad)}W</span>
         <span class="badge badge-blue">${a.result.inverterKVA.toFixed(1)} kVA</span>
-        <span class="badge badge-green">₦${fmt(a.result.total)}</span>
+        <span class="badge badge-green">${fmtCur(a.result.total)}</span>
       </div>
     </div>
   `).join('');
@@ -2078,7 +2194,7 @@ function renderQuotesList() {
         <div class="audit-sub">${new Date(q.createdAt).toLocaleDateString()}</div>
       </div>
       <div class="audit-badges">
-        <span class="badge badge-green">₦${fmt(q.total)}</span>
+        <span class="badge badge-green">${fmtCur(q.total)}</span>
       </div>
     </div>
   `).join('');
@@ -2121,7 +2237,7 @@ function openAuditModal(id) {
     </div>
     <div class="breakdown-total" style="margin-top:16px">
       <div class="breakdown-total-label">Total Quote Value</div>
-      <div class="breakdown-total-val">₦${fmt(r.total)}</div>
+      <div class="breakdown-total-val">${fmtCur(r.total)}</div>
     </div>
     <div style="margin-top:24px">
       <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:8px">
@@ -2211,7 +2327,7 @@ function renderPriceTable() {
         <div style="color:var(--text);font-weight:500">${info.label}</div>
         <div style="color:var(--text3);font-size:12px">${info.unit}</div>
         <div><input class="price-input-sm" type="number" id="price-${tab}-${key}" value="${prices[key]||0}"></div>
-        <div style="color:var(--text3);font-size:12px">₦${fmt(state.prices.dealer[key]||0)}</div>
+        <div style="color:var(--text3);font-size:12px">${fmtCur(state.prices.dealer[key]||0)}</div>
         <div></div>
       </div>
     `;
@@ -2256,6 +2372,7 @@ function populateSettingsForm() {
   document.getElementById('co-phone').value = co.phone||'';
   document.getElementById('co-email').value = co.email||'';
   document.getElementById('co-web').value = co.web||'';
+  populateCurrencyDropdown();
   document.getElementById('cfg-sun').value = cfg.sunHours||4.5;
   document.getElementById('cfg-install').value = (cfg.installPct||0.12)*100;
   document.getElementById('cfg-dod').value = cfg.dodLithium||1.25;
@@ -2282,11 +2399,12 @@ function populateSettingsForm() {
 
 function saveSettings() {
   state.company = {
-    name: document.getElementById('co-name').value,
-    address: document.getElementById('co-address').value,
-    phone: document.getElementById('co-phone').value,
-    email: document.getElementById('co-email').value,
-    web: document.getElementById('co-web').value,
+    name:     document.getElementById('co-name').value,
+    address:  document.getElementById('co-address').value,
+    phone:    document.getElementById('co-phone').value,
+    email:    document.getElementById('co-email').value,
+    web:      document.getElementById('co-web').value,
+    currency: document.getElementById('co-currency').value || 'NGN',
   };
   state.config = {
     sunHours: parseFloat(document.getElementById('cfg-sun').value)||4.5,
@@ -2348,7 +2466,7 @@ function updateDashboard() {
   const avgSize = n ? state.audits.reduce((s,a)=>s+(a.result?.panelW||0),0)/n/1000 : 0;
   const qCount = state.quotes.length;
   document.getElementById('dash-total').textContent = n;
-  document.getElementById('dash-revenue').textContent = '₦'+fmt(totalRev);
+  document.getElementById('dash-revenue').textContent = fmtCur(totalRev);
   document.getElementById('dash-avg-size').textContent = avgSize.toFixed(1)+' kW';
   document.getElementById('dash-quotes').textContent = qCount;
 
@@ -2364,7 +2482,7 @@ function updateDashboard() {
           <div class="audit-icon" style="width:32px;height:32px;font-size:14px">🏠</div>
           <div class="audit-meta">
             <div class="audit-title" style="font-size:13px">${a.clientName}${staffTag}</div>
-            <div class="audit-sub">${a.propertyType} · ₦${fmt(a.result?.total||0)}</div>
+            <div class="audit-sub">${a.propertyType} · ${fmtCur(a.result?.total||0)}</div>
           </div>
         </div>`;
     }).join('');
@@ -2557,7 +2675,7 @@ function generateTieredQuote() {
               <div class="tier-tagline">${t.tagline}</div>
             </div>
           </div>
-          <div class="tier-price" style="color:${t.color}">₦${fmt(r.total)}</div>
+          <div class="tier-price" style="color:${t.color}">${fmtCur(r.total)}</div>
           <div class="tier-price-sub">${t.batteryType === 'lithium' ? 'Lithium LiFePO4' : 'Lead-Acid'} · ${t.backupDays} day${t.backupDays > 1 ? 's' : ''} autonomy</div>
         </div>
         <div class="tier-specs">
@@ -2566,7 +2684,7 @@ function generateTieredQuote() {
           <div class="tier-spec-row"><span class="tier-spec-label">Batteries</span><span class="tier-spec-val">${r.totalBatteries > 0 ? r.totalBatteries + ' × ' + (state.config.individualBattAh||200) + 'Ah' : '—'}</span></div>
           <div class="tier-spec-row"><span class="tier-spec-label">Inverter</span><span class="tier-spec-val">${r.selectedInverterKVA} kVA (${inverterBrand})</span></div>
           <div class="tier-spec-row"><span class="tier-spec-label">Backup Runtime</span><span class="tier-spec-val">${r.battRuntimeHrs} hrs</span></div>
-          <div class="tier-spec-row"><span class="tier-spec-label">Equipment Cost</span><span class="tier-spec-val">₦${fmt(r.equipTotal)}</span></div>
+          <div class="tier-spec-row"><span class="tier-spec-label">Equipment Cost</span><span class="tier-spec-val">${fmtCur(r.equipTotal)}</span></div>
         </div>
         <div class="tier-footer">
           <button class="btn ${isBest ? 'btn-primary' : 'btn-secondary'}" style="width:100%;justify-content:center" 
@@ -2657,14 +2775,14 @@ function renderSavingsPanel(savings) {
     : '—';
 
   panel.innerHTML = `
-    <div class="savings-row"><span class="savings-label">Current daily spend</span><span class="savings-val">₦${fmt(savings.dailyCost)}</span></div>
-    <div class="savings-row"><span class="savings-label">Current annual spend</span><span class="savings-val">₦${fmt(savings.annualCost)}</span></div>
-    <div class="savings-row"><span class="savings-label">Cost over ${savings.systemLife} years</span><span class="savings-val">₦${fmt(savings.lifetimeCost)}</span></div>
+    <div class="savings-row"><span class="savings-label">Current daily spend</span><span class="savings-val">${fmtCur(savings.dailyCost)}</span></div>
+    <div class="savings-row"><span class="savings-label">Current annual spend</span><span class="savings-val">${fmtCur(savings.annualCost)}</span></div>
+    <div class="savings-row"><span class="savings-label">Cost over ${savings.systemLife} years</span><span class="savings-val">${fmtCur(savings.lifetimeCost)}</span></div>
     <div class="savings-row"><span class="savings-label">Estimated payback</span><span class="savings-val" style="color:var(--green)">${paybackStr}</span></div>
     ${savings.lifetimeSavings > 0 ? `
     <div class="savings-highlight">
       <div class="savings-highlight-label">💰 ${savings.systemLife}-Year Net Savings</div>
-      <div class="savings-highlight-val">₦${fmt(savings.lifetimeSavings)}</div>
+      <div class="savings-highlight-val">${fmtCur(savings.lifetimeSavings)}</div>
     </div>` : `<div style="font-size:12px;color:var(--text3);margin-top:8px">Enter current spending details above to see savings.</div>`}`;
 }
 
@@ -2685,14 +2803,14 @@ function renderFinancingPanel(total) {
   panel.innerHTML = `
     <div style="display:flex;justify-content:space-between;margin-bottom:6px">
       <span style="font-size:12px;color:var(--text3)">Deposit (${depositPct}%)</span>
-      <span style="font-size:12.5px;font-weight:700;color:var(--purple)">₦${fmt(deposit)}</span>
+      <span style="font-size:12.5px;font-weight:700;color:var(--purple)">${fmtCur(deposit)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;margin-bottom:10px">
       <span style="font-size:12px;color:var(--text3)">Balance over ${months} months</span>
-      <span style="font-size:12.5px;font-weight:700;color:var(--purple)">₦${fmt(balance)}</span>
+      <span style="font-size:12.5px;font-weight:700;color:var(--purple)">${fmtCur(balance)}</span>
     </div>
-    <div class="financing-monthly">₦${fmt(monthly)}<span style="font-size:14px;font-weight:400;color:var(--purple);opacity:.7">/mo</span></div>
-    <div class="financing-sub">After ₦${fmt(deposit)} deposit · ${months} monthly payments</div>`;
+    <div class="financing-monthly">${fmtCur(monthly)}<span style="font-size:14px;font-weight:400;color:var(--purple);opacity:.7">/mo</span></div>
+    <div class="financing-sub">After ${fmtCur(deposit)} deposit · ${months} monthly payments</div>`;
 }
 
 // ============================================================
@@ -2915,9 +3033,9 @@ function renderVisualizations() {
     const large = frac > 0.5 ? 1 : 0;
     return `<path d="M${CX},${CY} L${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} Z" fill="${c.color}" opacity="0.85"/>`;
   }).join('');
-  const legend = costs.map(c => `<div class="viz-legend-item"><div class="viz-legend-dot" style="background:${c.color}"></div>${c.label}: ₦${fmt(c.val)} (${Math.round(c.val/totalCost*100)}%)</div>`).join('');
+  const legend = costs.map(c => `<div class="viz-legend-item"><div class="viz-legend-dot" style="background:${c.color}"></div>${c.label}: ${fmtCur(c.val)} (${Math.round(c.val/totalCost*100)}%)</div>`).join('');
   document.getElementById('viz-cost-donut').innerHTML = `
-    <svg width="170" height="170" viewBox="0 0 170 170" style="flex-shrink:0">${arcs}<circle cx="${CX}" cy="${CY}" r="38" fill="var(--surface)"/><text x="${CX}" y="${CY - 4}" text-anchor="middle" fill="var(--text)" font-family="var(--font-display)" font-size="12" font-weight="800">₦${fmt(totalCost)}</text><text x="${CX}" y="${CY + 10}" text-anchor="middle" fill="var(--text3)" font-size="8">TOTAL</text></svg>
+    <svg width="170" height="170" viewBox="0 0 170 170" style="flex-shrink:0">${arcs}<circle cx="${CX}" cy="${CY}" r="38" fill="var(--surface)"/><text x="${CX}" y="${CY - 4}" text-anchor="middle" fill="var(--text)" font-family="var(--font-display)" font-size="12" font-weight="800">${fmtCur(totalCost)}</text><text x="${CX}" y="${CY + 10}" text-anchor="middle" fill="var(--text3)" font-size="8">TOTAL</text></svg>
     <div class="viz-legend" style="flex-direction:column;gap:6px">${legend}</div>`;
 
   // — System sizing bars —

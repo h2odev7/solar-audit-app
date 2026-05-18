@@ -843,7 +843,13 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         <div class="breakdown-item">
           <div class="breakdown-label">⚡ Inverter<span id="calc-inv-desc">— kVA · —</span></div>
           <div style="text-align:right">
-            <div style="font-size:11px;color:var(--text3)" id="calc-inv-qty">1 unit</div>
+            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-bottom:3px">
+              <span style="font-size:11px;color:var(--text3)">Qty:</span>
+              <input type="number" id="inv-qty" value="1" min="1" max="20"
+                style="width:42px;padding:2px 5px;background:var(--surface3);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-size:11px;outline:none;text-align:center"
+                oninput="recalculate()">
+            </div>
+            <div style="font-size:11px;color:var(--text3)" id="calc-inv-unit-price">—</div>
             <div class="breakdown-val" id="calc-inv-price">—</div>
           </div>
         </div>
@@ -1037,11 +1043,10 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
       <button class="btn btn-primary" onclick="saveSettings()">Save Company Info</button>
     </div>
     <div class="card">
-      <div class="card-title">System Config</div>
-      <div class="form-group"><label class="form-label">Installation % of equipment</label><input type="number" class="form-input" id="cfg-install" value="10"></div>
-      <div class="form-group"><label class="form-label">Battery DOD factor (Lithium)</label><input type="number" class="form-input" id="cfg-dod" value="1.25"></div>
-      <div class="form-group"><label class="form-label">Battery DOD factor (Lead-Acid)</label><input type="number" class="form-input" id="cfg-dod-la" value="2.0"></div>
-      <div class="divider"></div>
+      <!-- Hidden fields kept for JS compatibility -->
+      <input type="hidden" id="cfg-install" value="10">
+      <input type="hidden" id="cfg-dod" value="1.25">
+      <input type="hidden" id="cfg-dod-la" value="2.0">
       <details open>
       <summary style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px"><span style="transition:transform .2s;display:inline-block">▸</span> Battery Capacity Parameters</summary>
       <div class="form-group"><label class="form-label">Battery Type</label>
@@ -1066,20 +1071,20 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
             <option value="48" selected>48V</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Depth of Discharge (DoD)</label>
-          <input type="number" class="form-input" id="cfg-batt-dod" value="0.80" min="0.1" max="1" step="0.05">
-        </div>
-      </div>
-      <div class="form-group"><label class="form-label">Battery Efficiency</label>
-        <input type="number" class="form-input" id="cfg-batt-eff" value="0.95" min="0.5" max="1" step="0.01">
-      </div>
-      <div class="form-row">
         <div class="form-group"><label class="form-label">Individual Battery Capacity (Ah)</label>
           <input type="number" class="form-input" id="cfg-indiv-batt-ah" value="200" min="1">
         </div>
-        <div class="form-group"><label class="form-label">Days of Autonomy</label>
-          <input type="number" class="form-input" id="cfg-days-autonomy" value="1" min="1" max="7">
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Depth of Discharge (DoD)</label>
+          <input type="number" class="form-input" id="cfg-batt-dod" value="0.80" min="0.1" max="1" step="0.05">
         </div>
+        <div class="form-group"><label class="form-label">Battery Efficiency</label>
+          <input type="number" class="form-input" id="cfg-batt-eff" value="0.95" min="0.5" max="1" step="0.01">
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Days of Autonomy</label>
+        <input type="number" class="form-input" id="cfg-days-autonomy" value="1" min="1" max="7">
       </div>
       </details>
       <div class="divider"></div>
@@ -1108,14 +1113,23 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
       <div class="divider"></div>
       <details open>
       <summary style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px"><span style="transition:transform .2s;display:inline-block">▸</span> Inverter Parameters</summary>
-      <div class="form-group"><label class="form-label">Inverter Brand</label>
-        <select class="form-input" id="cfg-inv-brand">
-          <option value="Growatt">Growatt</option>
-          <option value="Itel">Itel</option>
-          <option value="SMS">SMS</option>
-          <option value="Sako">Sako</option>
-          <option value="Restar">Restar</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Inverter Brand</label>
+          <select class="form-input" id="cfg-inv-brand">
+            <option value="Growatt">Growatt</option>
+            <option value="Itel">Itel</option>
+            <option value="SMS">SMS</option>
+            <option value="Sako">Sako</option>
+            <option value="Restar">Restar</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Inverter Voltage (V)</label>
+          <select class="form-input" id="cfg-inv-voltage">
+            <option value="12">12V</option>
+            <option value="24">24V</option>
+            <option value="48" selected>48V</option>
+          </select>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Inverter Efficiency Factor</label>
@@ -1130,13 +1144,6 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
       <div class="form-group"><label class="form-label">Standard Sizes (kVA, comma-separated)</label>
         <input type="text" class="form-input" id="cfg-inv-std-sizes" value="1, 1.5, 2, 3, 5, 7.5, 10, 15, 20">
         <div style="font-size:11px;color:var(--text3);margin-top:4px">Calc'd kVA rounds up to the next size in this list</div>
-      </div>
-      <div class="form-group"><label class="form-label">Inverter Voltage (V)</label>
-        <select class="form-input" id="cfg-inv-voltage">
-          <option value="12">12V</option>
-          <option value="24">24V</option>
-          <option value="48" selected>48V</option>
-        </select>
       </div>
       </details>
       <div class="divider"></div>
@@ -1916,7 +1923,8 @@ function calcSystem(appliances, opts) {
   const installedBattKWh = (totalBatteries * (cfg.individualBattAh||200) * (cfg.battVoltage||48)) / 1000;
   const cPanels      = panelW * prices.panelPerWatt;
   const cBattery     = installedBattKWh * batteryPrice;
-  const cInverter    = selectedInverterKVA * prices.inverterPerKVA;
+  const invQtyCalc   = (() => { const el = document.getElementById('inv-qty'); return el ? (parseInt(el.value)||1) : 1; })();
+  const cInverter    = selectedInverterKVA * prices.inverterPerKVA * invQtyCalc;
   const cCabling     = cfg.cablingMode === 'scaled' ? selectedInverterKVA * (cfg.cablingPerKVA||0) : prices.cabling;
   const cMounting    = cfg.mountingMode === 'scaled' ? numPanels * (cfg.mountingPerPanel||0) : prices.mounting;
   // Accessories = ⅓ of (panels + battery + inverter)
@@ -1993,29 +2001,35 @@ function recalculate() {
   set('calc-selected-inv',    (r.selectedInverterKVA||0).toFixed(1) + ' kVA @ ' + (state.config.inverterVoltage||48) + 'V');
   // Equipment breakdown items
   const cfg = state.config;
-  const invBrand   = cfg.invBrand      || cfg.inverterBrand || 'Growatt';
-  const panelBrand = cfg.panelBrand    || 'Jinko Solar';
-  const battBrand  = cfg.batteryBrand  || 'Itel';
-  const battType   = cfg.batteryType   || 'lithium';
-  const battLabel  = battType === 'lithium' ? 'Lithium' : 'Lead-Acid';
+  const invBrand    = cfg.invBrand      || cfg.inverterBrand || 'Growatt';
+  const panelBrand  = cfg.panelBrand    || 'Jinko Solar';
+  const battBrand   = cfg.batteryBrand  || 'Itel';
+  const battType    = cfg.batteryType   || 'lithium';
+  const battLabel   = battType === 'lithium' ? 'Lithium' : 'Lead-Acid';
+  const invVolt     = cfg.inverterVoltage || 48;
 
-  set('calc-inv-desc',    `${(r.selectedInverterKVA||0).toFixed(1)} kVA · ${invBrand}`);
-  set('calc-inv-qty',     '1 unit');
-  set('calc-inv-price',   fmtCur(r.cInverter));
+  // Editable inverter qty
+  const invQtyEl  = document.getElementById('inv-qty');
+  const invQty    = invQtyEl ? (parseInt(invQtyEl.value) || 1) : 1;
+  const invUnitPrice = r.cInverter;
+  const invTotalPrice = invUnitPrice * invQty;
 
-  set('calc-panel-desc',  `${panelBrand} · ${cfg.individualPanelW||400}W each`);
-  set('calc-panel-qty',   `${r.numPanels||0} panels`);
-  set('calc-panel-price', fmtCur(r.cPanels));
+  set('calc-inv-desc',       `${(r.selectedInverterKVA||0).toFixed(1)} kVA · ${invVolt}V · ${invBrand}`);
+  set('calc-inv-unit-price', `${fmtCur(invUnitPrice)} × ${invQty}`);
+  set('calc-inv-price',      fmtCur(invTotalPrice));
 
-  set('calc-batt-desc',   `${battBrand} ${battLabel} · ${cfg.individualBattAh||200}Ah ${cfg.battVoltage||48}V`);
-  set('calc-batt-qty',    `${r.totalBatteries||0} units`);
-  set('calc-batt-price',  fmtCur(r.cBattery));
+  set('calc-panel-desc',     `${panelBrand} · ${cfg.individualPanelW||400}W each`);
+  set('calc-panel-qty',      `${r.numPanels||0} panels`);
+  set('calc-panel-price',    fmtCur(r.cPanels));
 
-  set('calc-accessories', fmtCur(r.cAccessories));
-  set('calc-install',     fmtCur(r.cInstall));
-  set('calc-total',       fmtCur(r.total));
-  // Keep calc-equip for any legacy references
-  set('calc-equip',       fmtCur(r.equipTotal));
+  set('calc-batt-desc',      `${battBrand} ${battLabel} · ${cfg.individualBattAh||200}Ah ${cfg.battVoltage||48}V`);
+  set('calc-batt-qty',       `${r.totalBatteries||0} units`);
+  set('calc-batt-price',     fmtCur(r.cBattery));
+
+  set('calc-accessories',    fmtCur(r.cAccessories));
+  set('calc-install',        fmtCur(r.cInstall));
+  set('calc-total',          fmtCur(r.total));
+  set('calc-equip',          fmtCur(r.equipTotal));
   // Update currency badge
   const cb = document.getElementById('currency-badge');
   if (cb) cb.textContent = getActiveCurrency().code;
@@ -2713,10 +2727,10 @@ function renderCatalog() {
           <td><button class="catalog-del-btn" onclick="deleteCatalogItem('${tab}',${bi},${ii})">✕</button></td>
         </tr>`;
     } else {
-      headers = `<th>Variant</th><th>kW</th><th>Voltage (V)</th><th>Base Price (NGN)</th><th>Dealer Price (${curCode})</th><th>User Price (+10%) (${curCode})</th><th></th>`;
+      headers = `<th>Brand / Model</th><th>kW</th><th>Voltage (V)</th><th>Base Price (NGN)</th><th>Dealer Price (${curCode})</th><th>User Price (+10%) (${curCode})</th><th></th>`;
       rowFn = (item, ii) => `
         <tr>
-          <td><input class="catalog-inp" style="width:120px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)"></td>
+          <td><input class="catalog-inp" style="width:140px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)" placeholder="${brand.brand}"></td>
           <td><input class="catalog-inp" type="number" style="width:70px" value="${item.kw}" oninput="updateCatalogItem('${tab}',${bi},${ii},'kw',this.value)"></td>
           <td><input class="catalog-inp" type="number" style="width:70px" value="${item.volt}" oninput="updateCatalogItem('${tab}',${bi},${ii},'volt',this.value)"></td>
           <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)" title="Enter price in NGN"></td>
@@ -2748,7 +2762,7 @@ function renderCatalog() {
     } else {
       addRow = `
         <div class="catalog-add-row">
-          <div><div class="catalog-add-label">Variant</div><input class="catalog-inp" id="add-${bi}-label" placeholder="e.g. 8kW 48V" style="width:100px"></div>
+          <div><div class="catalog-add-label">Brand / Model</div><input class="catalog-inp" id="add-${bi}-label" placeholder="${brand.brand}" style="width:120px" value="${brand.brand}"></div>
           <div><div class="catalog-add-label">kW</div><input class="catalog-inp" type="number" id="add-${bi}-kw" placeholder="8" style="width:70px"></div>
           <div><div class="catalog-add-label">Volts</div><input class="catalog-inp" type="number" id="add-${bi}-volt" placeholder="48" style="width:70px"></div>
           <div><div class="catalog-add-label">Dealer Price</div><input class="catalog-inp" type="number" id="add-${bi}-price" placeholder="1500000" style="width:120px"></div>

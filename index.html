@@ -885,7 +885,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
   <div class="two-col">
     <div class="card">
       <div class="card-title">Company Info</div>
-      <div class="form-group"><label class="form-label">Company Name</label><input type="text" class="form-input" id="co-name" placeholder="SolarIQ Nigeria Ltd"></div>
+      <div class="form-group"><label class="form-label">Company Name</label><input type="text" class="form-input" id="co-name" placeholder="SolarIQ Ltd"></div>
       <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" id="co-address" placeholder="123 Energy Way, Abuja"></div>
       <div class="form-group"><label class="form-label">Phone</label><input type="text" class="form-input" id="co-phone" placeholder="0800 000 0000"></div>
       <div class="form-group"><label class="form-label">Email</label><input type="text" class="form-input" id="co-email" placeholder="info@solariq.ng"></div>
@@ -1173,6 +1173,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
       <div class="modal-title">Client Quote</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" onclick="downloadPDF()">⬇ Download PDF</button>
+        <button class="btn btn-danger" onclick="deleteQuoteFromModal()">🗑 Delete</button>
         <button class="btn btn-ghost" onclick="closeModal('quote-modal')">✕</button>
       </div>
     </div>
@@ -1245,7 +1246,7 @@ const DEFAULT_CONFIG = {
 };
 
 const DEFAULT_COMPANY = {
-  name: 'SolarIQ Nigeria Ltd',
+  name: 'SolarIQ Ltd',
   address: '123 Energy Way, Abuja FCT',
   phone: '0800 000 0000',
   email: 'info@solariq.ng',
@@ -1454,6 +1455,10 @@ function onCurrencyChange() {
   if (sel) state.company.currency = sel.value;
   recalculate();
   updateDashboard();
+  // Re-render quote modal if open
+  if (window._currentQuote && document.getElementById('quote-modal')?.classList.contains('open')) {
+    document.getElementById('modal-quote-body').innerHTML = renderQuoteHTML(window._currentQuote);
+  }
 }
 
 // ============================================================
@@ -1846,97 +1851,8 @@ async function saveAudit() {
 async function generateQuote(auditOverride) {
   const audit = auditOverride || buildCurrentAudit();
   const r = audit.result;
-  const fmt = n => Math.round(n).toLocaleString('en-NG');
   const co = state.company;
   const qId = 'QT-' + Date.now().toString().slice(-6);
-  const dateStr = new Date().toLocaleDateString('en-NG', {year:'numeric',month:'long',day:'numeric'});
-
-  const quoteHTML = `
-  <div class="quote-preview" id="quote-print-area">
-    <div class="quote-header">
-      <div>
-        <div class="quote-logo">⚡ ${co.name}<span>${co.address}</span></div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px">${co.phone} · ${co.email}</div>
-      </div>
-      <div class="quote-meta">
-        <strong style="color:#111;font-size:14px">QUOTATION</strong><br>
-        Ref: ${qId}<br>
-        Date: ${dateStr}<br>
-        Valid: 30 days
-      </div>
-    </div>
-    <div class="quote-client">
-      <div class="quote-section-title">Prepared For</div>
-      <div class="quote-client-name">${audit.clientName}</div>
-      <div class="quote-client-detail">${audit.clientPhone} · ${audit.location} · ${audit.propertyType}</div>
-    </div>
-    <div class="quote-section-title">System Specification</div>
-    <table class="quote-table" style="margin-bottom:20px">
-      <tr><th>Parameter</th><th>Value</th></tr>
-      <tr><td>Total Load</td><td><strong>${fmt(r.totalLoad)} W</strong></td></tr>
-      <tr><td>Total Energy Demand</td><td>${fmt(r.totalEnergyWh)} Wh / ${(r.totalEnergyKWh||0).toFixed(2)} kWh</td></tr>
-      <tr style="background:#fff7ed"><td><strong>Adjusted Energy Demand</strong><br><span style="font-size:11px;color:#9ca3af">+20% system losses</span></td><td><strong>${fmt(r.adjustedEnergyWh||0)} Wh / ${(r.adjustedEnergyKWh||0).toFixed(2)} kWh</strong></td></tr>
-      <tr><td>Solar Panel Capacity</td><td><strong>${fmt(r.panelW)} W (${audit.panelBrand})</strong></td></tr>
-      <tr><td>Battery Bank</td><td><strong>${r.batteryKWh.toFixed(1)} kWh (${audit.batteryType==='lithium'?'Lithium LiFePO4':'Lead-Acid'})</strong></td></tr>
-      <tr><td>Battery Capacity</td><td><strong>${Math.ceil(r.battCapacityAh||0)} Ah @ ${state.config.battVoltage||48}V</strong></td></tr>
-      <tr><td>Battery Capacity (Wh)</td><td><strong>${fmt(Math.round(r.battCapacityWh||0))} Wh &nbsp;/&nbsp; ${((r.battCapacityWh||0)/1000).toFixed(2)} kWh</strong></td></tr>
-      <tr><td>Battery Runtime (no charging)</td><td><strong>${Math.round(r.battRuntimeHrs||0).toLocaleString()} hrs</strong></td></tr>
-      <tr><td>Total Batteries Required</td><td><strong>${r.totalBatteries||0} × ${state.config.individualBattAh||200}Ah battery</strong></td></tr>
-      <tr><td>Total Battery Bank Energy</td><td><strong>${fmt(Math.round(r.totalBattEnergyWh||0))} Wh &nbsp;/&nbsp; ${((r.totalBattEnergyWh||0)/1000).toFixed(2)} kWh</strong></td></tr>
-      <tr style="background:#fff7ed"><td><strong>Solar Power Required</strong><br><span style="font-size:11px;color:#9ca3af">Battery Energy ÷ Peak Sun Hours</span></td><td><strong>${fmt(Math.round(r.solarPowerW||0))} W &nbsp;/&nbsp; ${((r.solarPowerW||0)/1000).toFixed(2)} kW</strong></td></tr>
-      <tr><td>Adjusted Panel Capacity<br><span style="font-size:11px;color:#9ca3af">Solar Power × ${Math.round((state.config.energyUsedPct||0.9)*100)}% energy used</span></td><td><strong>${fmt(Math.round(r.adjustedPanelW||0))} W</strong></td></tr>
-      <tr style="background:#f0fdf4"><td><strong>Number of Solar Panels</strong><br><span style="font-size:11px;color:#9ca3af">${state.config.individualPanelW||400}W panels × 0.7 derating</span></td><td><strong>${r.numPanels||0} panels</strong></td></tr>
-      <tr><td>Inverter Size (W)<br><span style="font-size:11px;color:#9ca3af">Total Load × Efficiency factor</span></td><td>${fmt(Math.round(r.inverterSizeW||0))} W</td></tr>
-      <tr><td><strong>Inverter Size (kVA)</strong><br><span style="font-size:11px;color:#9ca3af">Inverter W ÷ 0.8 power factor ÷ 1000</span></td><td><strong>${(r.inverterKVA||0).toFixed(2)} kVA (${audit.inverterBrand})</strong></td></tr>
-      <tr><td>Days of Autonomy</td><td><strong>${state.config.daysOfAutonomy||1} day(s)</strong></td></tr>
-    </table>
-    <div class="quote-section-title">Cost Breakdown</div>
-    <table class="quote-table">
-      <tr><th>Item</th><th style="text-align:right">Amount (${getActiveCurrency().code})</th></tr>
-      <tr><td>Solar Panels (${fmt(r.panelW)}W)</td><td style="text-align:right">${fmtCur(r.cPanels)}</td></tr>
-      <tr><td>Battery Bank (${r.batteryKWh.toFixed(1)} kWh)</td><td style="text-align:right">${fmtCur(r.cBattery)}</td></tr>
-      <tr><td>Inverter/Charger (${r.inverterKVA.toFixed(1)} kVA)</td><td style="text-align:right">${fmtCur(r.cInverter)}</td></tr>
-      <tr><td>Cabling &amp; Wiring</td><td style="text-align:right">${fmtCur(r.cCabling)}</td></tr>
-      <tr><td>Mounting Structure</td><td style="text-align:right">${fmtCur(r.cMounting)}</td></tr>
-      <tr><td>Accessories &amp; Protections</td><td style="text-align:right">${fmtCur(r.cAccessories)}</td></tr>
-      <tr><td>Installation &amp; Labour</td><td style="text-align:right">${fmtCur(r.cInstall)}</td></tr>
-    </table>
-    <div class="quote-total-section">
-      <div class="quote-total-row"><span>Equipment Subtotal</span><span>${fmtCur(r.equipTotal)}</span></div>
-      <div class="quote-total-row"><span>Installation (${state.config.installPct*100}%)</span><span>${fmtCur(r.cInstall)}</span></div>
-      ${audit.markup>0?`<div class="quote-total-row"><span>Margin (${audit.markup}%)</span><span>${fmtCur(r.markupAmt)}</span></div>`:''}
-      <div class="quote-total-final"><span>TOTAL INVESTMENT</span><span>${fmtCur(r.total)}</span></div>
-    </div>
-    <div style="margin-top:28px">
-      <div class="quote-section-title">Audit Report Summary</div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
-        <tr style="background:#f97316">
-          <th style="padding:10px 14px;color:white;text-align:left;font-weight:700;border-radius:4px 0 0 0">Parameter</th>
-          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700">Calculated</th>
-          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700;border-radius:0 4px 0 0">Selected / Qty</th>
-        </tr>
-        <tr style="background:#fff7ed">
-          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #fed7aa">⚡ System Load / Inverter Size</td>
-          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;color:#374151">${fmt(Math.round(r.inverterSizeW||0))} W &nbsp;|&nbsp; ${(r.inverterKVA||0).toFixed(2)} kVA (calc.)</td>
-          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;font-weight:700;color:#f97316;font-size:16px">${(r.selectedInverterKVA||0).toFixed(1)} kVA</td>
-        </tr>
-        <tr>
-          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #e5e7eb">🔋 Energy Storage / No. of Batteries</td>
-          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #e5e7eb;color:#374151">${fmt(Math.round(r.totalBattEnergyWh||0))} Wh &nbsp;|&nbsp; ${Math.ceil(r.battCapacityAh||0)} Ah</td>
-          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #e5e7eb;font-weight:700;color:#f97316;font-size:16px">${r.totalBatteries||0} batteries</td>
-        </tr>
-        <tr style="background:#fff7ed">
-          <td style="padding:12px 14px;font-weight:700;color:#111">☀️ Peak Solar Power / No. of Panels</td>
-          <td style="padding:12px 14px;text-align:center;color:#374151">${fmt(Math.round(r.solarPowerW||0))} W &nbsp;|&nbsp; ${fmt(Math.round(r.adjustedPanelW||0))} W adj.</td>
-          <td style="padding:12px 14px;text-align:center;font-weight:700;color:#f97316;font-size:16px">${r.numPanels||0} panels</td>
-        </tr>
-      </table>
-    </div>
-    <div class="quote-footer">
-      ${co.name} · ${co.address} · ${co.web}<br>
-      This quote is valid for 30 days from issue date. Prices subject to component availability.
-    </div>
-  </div>`;
 
   const quote = {
     id: qId,
@@ -1944,20 +1860,120 @@ async function generateQuote(auditOverride) {
     clientName: audit.clientName,
     total: r.total,
     createdAt: new Date().toISOString(),
-    html: quoteHTML,
-    // Embed snapshot so PDF works even when audit isn't saved
-    _auditSnapshot: audit.id === 'temp' ? audit : undefined,
+    _auditSnapshot: audit,
   };
-  // Save to cloud
+
   const cloudQId = await window.cloudSaveQuote(quote);
   if (cloudQId) quote.id = cloudQId;
   state.quotes.unshift(quote);
   saveToStorage();
   updateBadges();
 
-  document.getElementById('modal-quote-body').innerHTML = quoteHTML;
+  document.getElementById('modal-quote-body').innerHTML = renderQuoteHTML(quote);
   document.getElementById('quote-modal').classList.add('open');
   window._currentQuote = quote;
+}
+
+// Renders quote HTML fresh every time — always uses current currency
+function renderQuoteHTML(quote) {
+  const audit = quote._auditSnapshot
+    || state.audits.find(a => a.id === quote.auditId)
+    || {};
+  const r   = audit.result || {};
+  const co  = state.company;
+  const cur = getActiveCurrency();
+  const fmt = n => Math.round(n || 0).toLocaleString('en-US');
+  const c   = n => fmtCur(n || 0);
+  const qId = quote.id;
+  const dateStr = new Date(quote.createdAt).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+
+  return `
+  <div class="quote-preview" id="quote-print-area">
+    <div class="quote-header">
+      <div>
+        <div class="quote-logo">&#9889; ${co.name}<span>${co.address}</span></div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">${co.phone} &middot; ${co.email}</div>
+      </div>
+      <div class="quote-meta">
+        <strong style="color:#111;font-size:14px">QUOTATION</strong><br>
+        Ref: ${qId}<br>
+        Date: ${dateStr}<br>
+        Currency: ${cur.code} (${cur.symbol})<br>
+        Valid: 30 days
+      </div>
+    </div>
+    <div class="quote-client">
+      <div class="quote-section-title">Prepared For</div>
+      <div class="quote-client-name">${audit.clientName || '&#8212;'}</div>
+      <div class="quote-client-detail">${[audit.clientPhone, audit.location, audit.propertyType].filter(Boolean).join(' &middot; ')}</div>
+    </div>
+    <div class="quote-section-title">System Specification</div>
+    <table class="quote-table" style="margin-bottom:20px">
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td>Total Load</td><td><strong>${fmt(r.totalLoad)} W</strong></td></tr>
+      <tr><td>Total Energy Demand</td><td>${fmt(r.totalEnergyWh)} Wh / ${(r.totalEnergyKWh||0).toFixed(2)} kWh</td></tr>
+      <tr style="background:#fff7ed"><td><strong>Adjusted Energy Demand</strong><br><span style="font-size:11px;color:#9ca3af">+20% system losses</span></td><td><strong>${fmt(r.adjustedEnergyWh||0)} Wh / ${(r.adjustedEnergyKWh||0).toFixed(2)} kWh</strong></td></tr>
+      <tr><td>Solar Panel Capacity</td><td><strong>${fmt(r.panelW)} W (${audit.panelBrand||''})</strong></td></tr>
+      <tr><td>Battery Bank</td><td><strong>${(r.batteryKWh||0).toFixed(1)} kWh (${audit.batteryType==='lithium'?'Lithium LiFePO4':'Lead-Acid'})</strong></td></tr>
+      <tr><td>Battery Capacity</td><td><strong>${Math.ceil(r.battCapacityAh||0)} Ah @ ${state.config.battVoltage||48}V</strong></td></tr>
+      <tr><td>Battery Capacity (Wh)</td><td><strong>${fmt(r.battCapacityWh||0)} Wh / ${((r.battCapacityWh||0)/1000).toFixed(2)} kWh</strong></td></tr>
+      <tr><td>Battery Runtime</td><td><strong>${Math.round(r.battRuntimeHrs||0)} hrs</strong></td></tr>
+      <tr><td>Total Batteries Required</td><td><strong>${r.totalBatteries||0} x ${state.config.individualBattAh||200}Ah</strong></td></tr>
+      <tr><td>Total Battery Bank Energy</td><td><strong>${fmt(r.totalBattEnergyWh||0)} Wh / ${((r.totalBattEnergyWh||0)/1000).toFixed(2)} kWh</strong></td></tr>
+      <tr style="background:#fff7ed"><td><strong>Solar Power Required</strong></td><td><strong>${fmt(r.solarPowerW||0)} W / ${((r.solarPowerW||0)/1000).toFixed(2)} kW</strong></td></tr>
+      <tr><td>Adjusted Panel Capacity</td><td><strong>${fmt(r.adjustedPanelW||0)} W</strong></td></tr>
+      <tr style="background:#f0fdf4"><td><strong>Number of Solar Panels</strong></td><td><strong>${r.numPanels||0} panels</strong></td></tr>
+      <tr><td>Inverter Size</td><td><strong>${(r.inverterKVA||0).toFixed(2)} kVA (${audit.inverterBrand||''})</strong></td></tr>
+      <tr><td>Selected Inverter</td><td><strong>${(r.selectedInverterKVA||0).toFixed(1)} kVA</strong></td></tr>
+      <tr><td>Days of Autonomy</td><td><strong>${state.config.daysOfAutonomy||1} day(s)</strong></td></tr>
+    </table>
+    <div class="quote-section-title">Cost Breakdown (${cur.code})</div>
+    <table class="quote-table">
+      <tr><th>Item</th><th style="text-align:right">Amount (${cur.symbol})</th></tr>
+      <tr><td>Solar Panels (${fmt(r.panelW)}W)</td><td style="text-align:right">${c(r.cPanels)}</td></tr>
+      <tr><td>Battery Bank (${(r.batteryKWh||0).toFixed(1)} kWh)</td><td style="text-align:right">${c(r.cBattery)}</td></tr>
+      <tr><td>Inverter/Charger (${(r.inverterKVA||0).toFixed(1)} kVA)</td><td style="text-align:right">${c(r.cInverter)}</td></tr>
+      <tr><td>Cabling &amp; Wiring</td><td style="text-align:right">${c(r.cCabling)}</td></tr>
+      <tr><td>Mounting Structure</td><td style="text-align:right">${c(r.cMounting)}</td></tr>
+      <tr><td>Accessories &amp; Protections</td><td style="text-align:right">${c(r.cAccessories)}</td></tr>
+      <tr><td>Installation &amp; Labour</td><td style="text-align:right">${c(r.cInstall)}</td></tr>
+    </table>
+    <div class="quote-total-section">
+      <div class="quote-total-row"><span>Equipment Subtotal</span><span>${c(r.equipTotal)}</span></div>
+      <div class="quote-total-row"><span>Installation (${((state.config.installPct||0.12)*100).toFixed(0)}%)</span><span>${c(r.cInstall)}</span></div>
+      ${(audit.markup||0)>0?`<div class="quote-total-row"><span>Margin (${audit.markup}%)</span><span>${c(r.markupAmt)}</span></div>`:''}
+      <div class="quote-total-final"><span>TOTAL INVESTMENT</span><span>${c(r.total)}</span></div>
+    </div>
+    <div style="margin-top:28px">
+      <div class="quote-section-title">Audit Report Summary</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
+        <tr style="background:#f97316">
+          <th style="padding:10px 14px;color:white;text-align:left;font-weight:700">Parameter</th>
+          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700">Calculated</th>
+          <th style="padding:10px 14px;color:white;text-align:center;font-weight:700">Selected / Qty</th>
+        </tr>
+        <tr style="background:#fff7ed">
+          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #fed7aa">&#9889; System Load / Inverter</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;color:#374151">${fmt(r.inverterSizeW||0)} W | ${(r.inverterKVA||0).toFixed(2)} kVA</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #fed7aa;font-weight:700;color:#f97316;font-size:16px">${(r.selectedInverterKVA||0).toFixed(1)} kVA</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 14px;font-weight:700;color:#111;border-bottom:1px solid #e5e7eb">&#128267; Energy Storage / Batteries</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #e5e7eb;color:#374151">${fmt(r.totalBattEnergyWh||0)} Wh | ${Math.ceil(r.battCapacityAh||0)} Ah</td>
+          <td style="padding:12px 14px;text-align:center;border-bottom:1px solid #e5e7eb;font-weight:700;color:#f97316;font-size:16px">${r.totalBatteries||0} batteries</td>
+        </tr>
+        <tr style="background:#fff7ed">
+          <td style="padding:12px 14px;font-weight:700;color:#111">&#9728;&#65039; Solar Power / Panels</td>
+          <td style="padding:12px 14px;text-align:center;color:#374151">${fmt(r.solarPowerW||0)} W | ${fmt(r.adjustedPanelW||0)} W adj.</td>
+          <td style="padding:12px 14px;text-align:center;font-weight:700;color:#f97316;font-size:16px">${r.numPanels||0} panels</td>
+        </tr>
+      </table>
+    </div>
+    <div class="quote-footer">
+      ${co.name} &middot; ${co.address} &middot; ${co.web}<br>
+      This quote is valid for 30 days from issue date. Prices subject to component availability.
+    </div>
+  </div>`;
 }
 
 function buildCurrentAudit() {
@@ -2185,7 +2201,6 @@ function renderQuotesList() {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">No quotes yet</div><div class="empty-sub">Generate a quote from a saved audit</div></div>`;
     return;
   }
-  const fmt = n => Math.round(n).toLocaleString('en-NG');
   container.innerHTML = state.quotes.map(q => `
     <div class="audit-item" onclick="openQuoteModal('${q.id}')">
       <div class="audit-icon">📄</div>
@@ -2193,8 +2208,9 @@ function renderQuotesList() {
         <div class="audit-title">${q.clientName} — ${q.id}</div>
         <div class="audit-sub">${new Date(q.createdAt).toLocaleDateString()}</div>
       </div>
-      <div class="audit-badges">
+      <div class="audit-badges" style="align-items:center">
         <span class="badge badge-green">${fmtCur(q.total)}</span>
+        <button class="btn btn-danger" style="padding:4px 10px;font-size:11px;margin-left:6px" onclick="event.stopPropagation();deleteQuote('${q.id}')">🗑</button>
       </div>
     </div>
   `).join('');
@@ -2287,8 +2303,31 @@ function openQuoteModal(id) {
   const quote = state.quotes.find(q=>q.id===id);
   if (!quote) return;
   window._currentQuote = quote;
-  document.getElementById('modal-quote-body').innerHTML = quote.html;
+  document.getElementById('modal-quote-body').innerHTML = renderQuoteHTML(quote);
   document.getElementById('quote-modal').classList.add('open');
+}
+
+function deleteQuote(id) {
+  if (!confirm('Delete this quote?')) return;
+  window.cloudDeleteQuote(id);
+  state.quotes = state.quotes.filter(q => q.id !== id);
+  saveToStorage();
+  updateBadges();
+  renderQuotesList();
+  showToast('🗑 Quote deleted', 'warn');
+}
+
+function deleteQuoteFromModal() {
+  if (!window._currentQuote) return;
+  if (!confirm('Delete quote ' + window._currentQuote.id + '?')) return;
+  window.cloudDeleteQuote(window._currentQuote.id);
+  state.quotes = state.quotes.filter(q => q.id !== window._currentQuote.id);
+  saveToStorage();
+  updateBadges();
+  closeModal('quote-modal');
+  renderQuotesList();
+  showToast('🗑 Quote deleted', 'warn');
+  window._currentQuote = null;
 }
 
 function closeModal(id) {

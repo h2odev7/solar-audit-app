@@ -87,6 +87,23 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .pkg-banner-desc { font-size: 11.5px; opacity: .7; margin-top: 1px; }
 .pkg-banner-close { background: none; border: none; color: inherit; opacity: .5; cursor: pointer; font-size: 16px; padding: 4px; transition: opacity .15s; }
 .pkg-banner-close:hover { opacity: 1; }
+/* PRODUCT CATALOG */
+.catalog-brand { margin-bottom: 24px; }
+.catalog-brand-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.catalog-brand-name { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text); }
+.catalog-brand-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.catalog-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.catalog-table th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; background: var(--surface3); border-bottom: 1px solid var(--border2); }
+.catalog-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.catalog-table tr:last-child td { border-bottom: none; }
+.catalog-table tr:hover td { background: rgba(249,115,22,.02); }
+.catalog-inp { width: 100%; padding: 6px 9px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font-body); font-size: 13px; outline: none; transition: border .15s; min-width: 60px; }
+.catalog-inp:focus { border-color: var(--accent); }
+.catalog-user-price { font-size: 12px; color: var(--green); font-weight: 600; white-space: nowrap; }
+.catalog-del-btn { width: 24px; height: 24px; border-radius: 5px; background: rgba(240,69,69,.1); border: 1px solid rgba(240,69,69,.2); color: var(--red); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+.catalog-del-btn:hover { background: var(--red); color: white; }
+.catalog-add-row { display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px; background: var(--surface2); border-top: 1px dashed var(--border3); flex-wrap: wrap; }
+.catalog-add-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
 /* COLLAPSIBLE SETTINGS */
 details summary::-webkit-details-marker { display: none; }
 details summary { user-select: none; }
@@ -951,22 +968,23 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
 <div class="page" id="page-pricing">
   <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
   <div class="page-header">
-    <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
       <div>
         <div class="page-title">Price Lists</div>
-        <div class="page-desc">Edit component pricing — changes apply to all new calculations</div>
+        <div class="page-desc">Manage dealer prices — user prices auto-calculated at dealer + 10%</div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="btn btn-secondary" onclick="resetPrices()">↺ Reset Defaults</button>
-        <button class="btn btn-primary" onclick="savePrices()">💾 Save Prices</button>
+        <button class="btn btn-secondary" onclick="resetCatalog()">↺ Reset Defaults</button>
+        <button class="btn btn-primary" onclick="saveCatalog()">💾 Save All Prices</button>
       </div>
     </div>
   </div>
-  <div class="tabs">
-    <div class="tab active" onclick="switchPriceTab('user')">User Prices</div>
-    <div class="tab" onclick="switchPriceTab('dealer')">Dealer Prices</div>
+  <div class="tabs" id="catalog-tabs">
+    <div class="tab active"   onclick="switchCatalogTab('panels')">☀️ Solar Panels</div>
+    <div class="tab"          onclick="switchCatalogTab('batteries')">🔋 Batteries</div>
+    <div class="tab"          onclick="switchCatalogTab('inverters')">⚡ Inverters</div>
   </div>
-  <div id="price-table-container"></div>
+  <div id="catalog-container"></div>
 </div>
 
 <!-- SETTINGS PAGE -->
@@ -1353,13 +1371,14 @@ const DEFAULT_COMPANY = {
 // ============================================================
 let state = {
   appliances: {},
-  customAppliances: [],   // [{ id, name, watts, qty, hours }]
+  customAppliances: [],
   audits: [],
   quotes: [],
   prices: JSON.parse(JSON.stringify(DEFAULT_PRICES)),
   config: { ...DEFAULT_CONFIG },
   company: { ...DEFAULT_COMPANY },
   activePriceTab: 'user',
+  catalog: null,  // null = use DEFAULT_CATALOG
 };
 // ============================================================
 // INIT APPLIANCES — ensures state.appliances has a valid
@@ -1422,6 +1441,7 @@ function loadFromStorage() {
       state.company = { ...DEFAULT_COMPANY, ...(parsed.company || {}) };
       state.customAppliances  = parsed.customAppliances  || [];
       state.activePriceTab    = parsed.activePriceTab    || 'user';
+      state.catalog           = parsed.catalog           || null;
       // Ensure voltage values are numbers, not strings (#10)
       state.config.battVoltage    = Number(state.config.battVoltage)    || 48;
       state.config.inverterVoltage = Number(state.config.inverterVoltage) || 48;
@@ -1442,6 +1462,7 @@ function saveToStorage() {
     company:          state.company,
     customAppliances: state.customAppliances || [],
     activePriceTab:   state.activePriceTab   || 'user',
+    catalog:          state.catalog,
   }));
 }
 
@@ -1606,7 +1627,7 @@ function showPage(id) {
   });
   if (id === 'audits') renderAuditsList();
   if (id === 'quotes') renderQuotesList();
-  if (id === 'pricing') { renderPriceTable(); switchPriceTab(state.activePriceTab || 'user'); }
+  if (id === 'pricing') { renderCatalog(); }
   if (id === 'dashboard') updateDashboard();
   if (id === 'new-audit') recalculate();
   if (id === 'packages') renderPackages();
@@ -2454,70 +2475,263 @@ function closeModal(id) {
 }
 
 // ============================================================
-// PRICING ENGINE
+// PRODUCT CATALOG — PRICING ENGINE
 // ============================================================
-const PRICE_LABELS = {
-  panelPerWatt:        { label:'Solar Panels', unit:'per Watt' },
-  batteryLithiumPerKWh:{ label:'Battery (Lithium LiFePO4)', unit:'per kWh' },
-  batteryLeadPerKWh:   { label:'Battery (Lead-Acid)', unit:'per kWh' },
-  inverterPerKVA:      { label:'Inverter / Charger', unit:'per kVA' },
-  cabling:             { label:'Cabling & Wiring', unit:'flat' },
-  mounting:            { label:'Mounting Structure', unit:'flat' },
-  accessories:         { label:'Accessories & Protection', unit:'flat' },
+
+const DEFAULT_CATALOG = {
+  panels: [
+    { brand:'Jinko Solar', items:[
+      { id:'j1', label:'450W', watt:450, dealerPrice:120000 },
+      { id:'j2', label:'480W', watt:480, dealerPrice:125000 },
+      { id:'j3', label:'550W', watt:550, dealerPrice:130000 },
+      { id:'j4', label:'580W', watt:580, dealerPrice:135000 },
+      { id:'j5', label:'615W', watt:615, dealerPrice:140000 },
+      { id:'j6', label:'700W', watt:700, dealerPrice:165000 },
+    ]},
+    { brand:'Canadian Solar', items:[
+      { id:'c1', label:'400W', watt:400, dealerPrice:125000 },
+      { id:'c2', label:'450W', watt:450, dealerPrice:130000 },
+      { id:'c3', label:'555W', watt:555, dealerPrice:145000 },
+      { id:'c4', label:'600W', watt:600, dealerPrice:155000 },
+      { id:'c5', label:'700W', watt:700, dealerPrice:170000 },
+    ]},
+    { brand:'LONGi Solar', items:[
+      { id:'l1', label:'550W', watt:550, dealerPrice:145000 },
+      { id:'l2', label:'600W', watt:600, dealerPrice:150000 },
+    ]},
+    { brand:'Trina Solar', items:[
+      { id:'t1', label:'550W', watt:550, dealerPrice:145000 },
+      { id:'t2', label:'600W', watt:600, dealerPrice:150000 },
+    ]},
+  ],
+  batteries: [
+    { brand:'Lead-Acid', type:'lead', items:[
+      { id:'la1', label:'100Ah 12V', ah:100, volt:12, kwh:1.2, dealerPrice:160000 },
+      { id:'la2', label:'150Ah 12V', ah:150, volt:12, kwh:1.8, dealerPrice:220000 },
+      { id:'la3', label:'200Ah 12V', ah:200, volt:12, kwh:2.4, dealerPrice:303000 },
+    ]},
+    { brand:'Itel Lithium', type:'lithium', items:[
+      { id:'il1', label:'100Ah 24V 2.5kWh', ah:100, volt:24, kwh:2.5, dealerPrice:600000 },
+      { id:'il2', label:'200Ah 24V 5kWh',   ah:200, volt:24, kwh:5,   dealerPrice:1100000 },
+      { id:'il3', label:'100Ah 48V 5kWh',   ah:100, volt:48, kwh:5,   dealerPrice:1100000 },
+      { id:'il4', label:'200Ah 48V 10kWh',  ah:200, volt:48, kwh:10,  dealerPrice:1989000 },
+      { id:'il5', label:'300Ah 48V 15kWh',  ah:300, volt:48, kwh:15,  dealerPrice:2500000 },
+    ]},
+    { brand:'Sako Lithium', type:'lithium', items:[
+      { id:'sk1', label:'100Ah 24V 2.5kWh',   ah:100, volt:24, kwh:2.5,  dealerPrice:550000 },
+      { id:'sk2', label:'200Ah 24V 5kWh',     ah:200, volt:24, kwh:5,    dealerPrice:1000000 },
+      { id:'sk3', label:'100Ah 48V 5kWh',     ah:100, volt:48, kwh:5,    dealerPrice:1000000 },
+      { id:'sk4', label:'200Ah 48V 10kWh',    ah:200, volt:48, kwh:10,   dealerPrice:1800000 },
+      { id:'sk5', label:'250Ah 48V 12.5kWh',  ah:250, volt:48, kwh:12.5, dealerPrice:1900000 },
+      { id:'sk6', label:'300Ah 48V',          ah:300, volt:48, kwh:null, dealerPrice:2100000 },
+    ]},
+    { brand:'Deye Lithium', type:'lithium', items:[
+      { id:'dy1', label:'100Ah 48V', ah:100, volt:48, kwh:5,   dealerPrice:1200000 },
+      { id:'dy2', label:'200Ah 48V', ah:200, volt:48, kwh:10,  dealerPrice:2200000 },
+    ]},
+  ],
+  inverters: [
+    { brand:'Growatt', items:[
+      { id:'gw1', label:'3kW 24V',   kw:3,   volt:24, dealerPrice:450000 },
+      { id:'gw2', label:'3.5kW 48V', kw:3.5, volt:48, dealerPrice:650000 },
+      { id:'gw3', label:'5kW 48V',   kw:5,   volt:48, dealerPrice:700000 },
+      { id:'gw4', label:'6kW 48V',   kw:6,   volt:48, dealerPrice:800000 },
+      { id:'gw5', label:'10kW 48V',  kw:10,  volt:48, dealerPrice:2700000 },
+      { id:'gw6', label:'12kW 48V',  kw:12,  volt:48, dealerPrice:3000000 },
+    ]},
+    { brand:'Itel Inverter', items:[
+      { id:'it1', label:'1.5kW 24V',       kw:1.5, volt:24, dealerPrice:270000 },
+      { id:'it2', label:'2kW 12V',         kw:2,   volt:12, dealerPrice:280000 },
+      { id:'it3', label:'3kW 24V',         kw:3,   volt:24, dealerPrice:400000 },
+      { id:'it4', label:'4kW 24V',         kw:4,   volt:24, dealerPrice:500000 },
+      { id:'it5', label:'6kW 48V',         kw:6,   volt:48, dealerPrice:700000 },
+      { id:'it6', label:'8kW 48V 2P',      kw:8,   volt:48, dealerPrice:1200000 },
+      { id:'it7', label:'12kW 48V 2P',     kw:12,  volt:48, dealerPrice:1500000 },
+      { id:'it8', label:'8kW 48V 3P',      kw:8,   volt:48, dealerPrice:2600000 },
+      { id:'it9', label:'12kW 48V 3P',     kw:12,  volt:48, dealerPrice:3100000 },
+    ]},
+    { brand:'SMS Hybrid', items:[
+      { id:'sm1', label:'1.5kW 24V',  kw:1.5, volt:24, dealerPrice:170000 },
+      { id:'sm2', label:'2kW 12V',    kw:2,   volt:12, dealerPrice:250000 },
+      { id:'sm3', label:'3.2kW 24V',  kw:3.2, volt:24, dealerPrice:400000 },
+      { id:'sm4', label:'4.2kW 24V',  kw:4.2, volt:24, dealerPrice:420000 },
+      { id:'sm5', label:'6.2kW 48V',  kw:6.2, volt:48, dealerPrice:600000 },
+      { id:'sm6', label:'8.2kW 48V',  kw:8.2, volt:48, dealerPrice:800000 },
+      { id:'sm7', label:'10.2kW 48V', kw:10.2,volt:48, dealerPrice:1000000 },
+    ]},
+  ],
 };
 
-function renderPriceTable() {
-  const tab = state.activePriceTab;
-  const prices = state.prices[tab];
-  const fmt = n => Math.round(n).toLocaleString('en-NG');
-  let html = `
-    <div class="price-row header">
-      <div>Component</div>
-      <div>Unit</div>
-      <div>Price (₦)</div>
-      <div>Dealer Ref (₦)</div>
-      <div></div>
-    </div>
-  `;
-  Object.entries(PRICE_LABELS).forEach(([key, info]) => {
+// State for catalog (loaded from localStorage, falls back to DEFAULT_CATALOG)
+function getCatalog() {
+  return state.catalog || JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+}
+
+let _catalogTab = 'panels';
+
+function switchCatalogTab(tab) {
+  _catalogTab = tab;
+  document.querySelectorAll('#catalog-tabs .tab').forEach((t,i) => {
+    t.classList.toggle('active', ['panels','batteries','inverters'][i] === tab);
+  });
+  renderCatalog();
+}
+
+function renderCatalog() {
+  const catalog = getCatalog();
+  const tab = _catalogTab;
+  const brands = catalog[tab] || [];
+  const fmt = n => Math.round(n||0).toLocaleString('en-NG');
+
+  let html = '';
+
+  brands.forEach((brand, bi) => {
+    // Column headers per tab type
+    let headers, rowFn;
+    if (tab === 'panels') {
+      headers = '<th>Variant</th><th>Wattage (W)</th><th>Dealer Price (₦)</th><th>User Price (+10%)</th><th></th>';
+      rowFn = (item, ii) => `
+        <tr>
+          <td><input class="catalog-inp" style="width:100px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:80px" value="${item.watt}" oninput="updateCatalogItem('${tab}',${bi},${ii},'watt',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)"></td>
+          <td class="catalog-user-price">${fmtCur(Math.round(item.dealerPrice * 1.1))}</td>
+          <td><button class="catalog-del-btn" onclick="deleteCatalogItem('${tab}',${bi},${ii})">✕</button></td>
+        </tr>`;
+    } else if (tab === 'batteries') {
+      headers = '<th>Variant</th><th>Ah</th><th>Voltage (V)</th><th>Dealer Price (₦)</th><th>User Price (+10%)</th><th></th>';
+      rowFn = (item, ii) => `
+        <tr>
+          <td><input class="catalog-inp" style="width:130px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:70px" value="${item.ah}" oninput="updateCatalogItem('${tab}',${bi},${ii},'ah',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:70px" value="${item.volt}" oninput="updateCatalogItem('${tab}',${bi},${ii},'volt',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)"></td>
+          <td class="catalog-user-price">${fmtCur(Math.round(item.dealerPrice * 1.1))}</td>
+          <td><button class="catalog-del-btn" onclick="deleteCatalogItem('${tab}',${bi},${ii})">✕</button></td>
+        </tr>`;
+    } else {
+      headers = '<th>Variant</th><th>kW</th><th>Voltage (V)</th><th>Dealer Price (₦)</th><th>User Price (+10%)</th><th></th>';
+      rowFn = (item, ii) => `
+        <tr>
+          <td><input class="catalog-inp" style="width:120px" value="${item.label}" oninput="updateCatalogItem('${tab}',${bi},${ii},'label',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:70px" value="${item.kw}" oninput="updateCatalogItem('${tab}',${bi},${ii},'kw',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:70px" value="${item.volt}" oninput="updateCatalogItem('${tab}',${bi},${ii},'volt',this.value)"></td>
+          <td><input class="catalog-inp" type="number" style="width:120px" value="${item.dealerPrice}" oninput="updateCatalogItem('${tab}',${bi},${ii},'dealerPrice',this.value)"></td>
+          <td class="catalog-user-price">${fmtCur(Math.round(item.dealerPrice * 1.1))}</td>
+          <td><button class="catalog-del-btn" onclick="deleteCatalogItem('${tab}',${bi},${ii})">✕</button></td>
+        </tr>`;
+    }
+
+    // Add-item row inputs per tab
+    let addRow = '';
+    if (tab === 'panels') {
+      addRow = `
+        <div class="catalog-add-row">
+          <div><div class="catalog-add-label">Variant</div><input class="catalog-inp" id="add-${bi}-label" placeholder="e.g. 650W" style="width:90px"></div>
+          <div><div class="catalog-add-label">Watts</div><input class="catalog-inp" type="number" id="add-${bi}-watt" placeholder="650" style="width:80px"></div>
+          <div><div class="catalog-add-label">Dealer Price</div><input class="catalog-inp" type="number" id="add-${bi}-price" placeholder="150000" style="width:120px"></div>
+          <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;align-self:flex-end" onclick="addCatalogItem('${tab}',${bi})">+ Add</button>
+        </div>`;
+    } else if (tab === 'batteries') {
+      addRow = `
+        <div class="catalog-add-row">
+          <div><div class="catalog-add-label">Variant</div><input class="catalog-inp" id="add-${bi}-label" placeholder="e.g. 200Ah 48V" style="width:110px"></div>
+          <div><div class="catalog-add-label">Ah</div><input class="catalog-inp" type="number" id="add-${bi}-ah" placeholder="200" style="width:70px"></div>
+          <div><div class="catalog-add-label">Volts</div><input class="catalog-inp" type="number" id="add-${bi}-volt" placeholder="48" style="width:70px"></div>
+          <div><div class="catalog-add-label">Dealer Price</div><input class="catalog-inp" type="number" id="add-${bi}-price" placeholder="1500000" style="width:120px"></div>
+          <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;align-self:flex-end" onclick="addCatalogItem('${tab}',${bi})">+ Add</button>
+        </div>`;
+    } else {
+      addRow = `
+        <div class="catalog-add-row">
+          <div><div class="catalog-add-label">Variant</div><input class="catalog-inp" id="add-${bi}-label" placeholder="e.g. 8kW 48V" style="width:100px"></div>
+          <div><div class="catalog-add-label">kW</div><input class="catalog-inp" type="number" id="add-${bi}-kw" placeholder="8" style="width:70px"></div>
+          <div><div class="catalog-add-label">Volts</div><input class="catalog-inp" type="number" id="add-${bi}-volt" placeholder="48" style="width:70px"></div>
+          <div><div class="catalog-add-label">Dealer Price</div><input class="catalog-inp" type="number" id="add-${bi}-price" placeholder="1500000" style="width:120px"></div>
+          <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;align-self:flex-end" onclick="addCatalogItem('${tab}',${bi})">+ Add</button>
+        </div>`;
+    }
+
     html += `
-      <div class="price-row">
-        <div style="color:var(--text);font-weight:500">${info.label}</div>
-        <div style="color:var(--text3);font-size:12px">${info.unit}</div>
-        <div><input class="price-input-sm" type="number" id="price-${tab}-${key}" value="${prices[key]||0}"></div>
-        <div style="color:var(--text3);font-size:12px">${fmtCur(state.prices.dealer[key]||0)}</div>
-        <div></div>
-      </div>
-    `;
+      <div class="catalog-brand card" style="padding:0;overflow:hidden;margin-bottom:20px">
+        <div class="catalog-brand-header">
+          <div>
+            <div class="catalog-brand-name">${brand.brand}</div>
+            <div class="catalog-brand-sub">${brand.items.length} products · User price = Dealer + 10%</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+        <table class="catalog-table">
+          <thead><tr>${headers}</tr></thead>
+          <tbody>${brand.items.map(rowFn).join('')}</tbody>
+        </table>
+        </div>
+        ${addRow}
+      </div>`;
   });
-  document.getElementById('price-table-container').innerHTML = `<div class="card" style="padding:0 24px"><div style="padding:16px 0">${html}</div></div>`;
+
+  const container = document.getElementById('catalog-container');
+  if (container) container.innerHTML = html || '<div class="empty-state"><div class="empty-title">No products</div></div>';
 }
 
-function switchPriceTab(tab) {
-  state.activePriceTab = tab;
-  saveToStorage();
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='user'?0:1)));
-  renderPriceTable();
+function updateCatalogItem(tab, bi, ii, field, val) {
+  const catalog = getCatalog();
+  const item = catalog[tab][bi].items[ii];
+  if (!item) return;
+  item[field] = (['label'].includes(field)) ? val : (parseFloat(val) || 0);
+  state.catalog = catalog;
+  // Refresh user price display only
+  renderCatalog();
 }
 
-function savePrices() {
-  const tab = state.activePriceTab;
-  Object.keys(PRICE_LABELS).forEach(key => {
-    const el = document.getElementById(`price-${tab}-${key}`);
-    if (el) state.prices[tab][key] = parseFloat(el.value)||0;
-  });
-  saveToStorage();
-  recalculate();
-  showToast('✅ Prices saved');
+function deleteCatalogItem(tab, bi, ii) {
+  const catalog = getCatalog();
+  catalog[tab][bi].items.splice(ii, 1);
+  state.catalog = catalog;
+  renderCatalog();
 }
 
-function resetPrices() {
-  if (!confirm('Reset all prices to defaults?')) return;
-  state.prices = JSON.parse(JSON.stringify(DEFAULT_PRICES));
-  saveToStorage();
-  renderPriceTable();
-  recalculate();
+function addCatalogItem(tab, bi) {
+  const catalog = getCatalog();
+  const label = document.getElementById(`add-${bi}-label`)?.value?.trim();
+  const price = parseFloat(document.getElementById(`add-${bi}-price`)?.value) || 0;
+  if (!label || !price) { showToast('Enter variant name and price', 'warn'); return; }
+
+  let item = { id: 'u' + Date.now(), label, dealerPrice: price };
+  if (tab === 'panels') {
+    item.watt = parseFloat(document.getElementById(`add-${bi}-watt`)?.value) || 0;
+  } else if (tab === 'batteries') {
+    item.ah   = parseFloat(document.getElementById(`add-${bi}-ah`)?.value)   || 0;
+    item.volt = parseFloat(document.getElementById(`add-${bi}-volt`)?.value) || 0;
+    item.kwh  = null;
+  } else {
+    item.kw   = parseFloat(document.getElementById(`add-${bi}-kw`)?.value)   || 0;
+    item.volt = parseFloat(document.getElementById(`add-${bi}-volt`)?.value) || 0;
+  }
+
+  catalog[tab][bi].items.push(item);
+  state.catalog = catalog;
+  renderCatalog();
 }
+
+function saveCatalog() {
+  saveToStorage();
+  showToast('✅ Catalog prices saved');
+}
+
+function resetCatalog() {
+  if (!confirm('Reset all catalog prices to defaults?')) return;
+  state.catalog = JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+  saveToStorage();
+  renderCatalog();
+  showToast('↺ Catalog reset to defaults', 'warn');
+}
+
+// Legacy stubs — keep so any old references don't break
+function renderPriceTable() { renderCatalog(); }
+function switchPriceTab(tab) { }
+function savePrices() { saveCatalog(); }
+function resetPrices() { resetCatalog(); }
 
 // ============================================================
 // SETTINGS

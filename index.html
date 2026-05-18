@@ -1503,21 +1503,25 @@ function calcSystem(appliances, opts) {
   const batteryKWh = Math.ceil(adjustedEnergyKWh * backupDays * dod * 10) / 10;
 
   const battCapacityAh    = (adjustedEnergyWh / ((cfg.battVoltage||48) * (cfg.battDod||0.8) * (cfg.battEfficiency||0.95))) * backupDays;
-  const battCapacityWh    = battCapacityAh * (cfg.battVoltage||48);
-  const totalBattEnergyWh = battCapacityAh * (cfg.battVoltage||48) * backupDays;
+  const totalBattEnergyWh_calc = battCapacityAh * (cfg.battVoltage||48) * backupDays;
   const battRuntimeHrs    = backupDays * 24;
 
-  const rawBatteries  = Math.floor(battCapacityAh / (cfg.individualBattAh || 200));
+  // Total batteries = ceil(battCapacityAh / individual Ah), then round per voltage rules
+  const rawBatteries  = Math.ceil(battCapacityAh / (cfg.individualBattAh || 200));
   const bVolt = cfg.battVoltage || 48;
   const iVolt = cfg.inverterVoltage || 48;
-  let totalBatteries = 0;
-  if (batteryType === 'lead') {
-    if (bVolt === 12 && iVolt === 12) totalBatteries = rawBatteries;
-    else if (bVolt === 12 && iVolt === 24) totalBatteries = Math.ceil(rawBatteries / 2) * 2;
-    else if (bVolt === 12 && iVolt === 48) totalBatteries = Math.ceil(rawBatteries / 4) * 4;
-  } else {
-    if (bVolt === iVolt) totalBatteries = rawBatteries;
-  }
+  let totalBatteries = rawBatteries;
+  // Voltage-matching rounding rules
+  if (bVolt === 12 && iVolt === 12)      totalBatteries = Math.ceil(rawBatteries);          // nearest whole
+  else if (bVolt === 12 && iVolt === 24) totalBatteries = Math.ceil(rawBatteries / 2) * 2;  // nearest even
+  else if (bVolt === 12 && iVolt === 48) totalBatteries = Math.ceil(rawBatteries / 4) * 4;  // nearest ×4
+  else if (bVolt === 24 && iVolt === 24) totalBatteries = Math.ceil(rawBatteries);          // nearest whole
+  else if (bVolt === 48 && iVolt === 48) totalBatteries = Math.ceil(rawBatteries);          // nearest whole
+  else totalBatteries = Math.ceil(rawBatteries);  // fallback: round up
+
+  // Recalculate battery Wh based on ACTUAL installed battery count
+  const battCapacityWh    = totalBatteries * (cfg.individualBattAh || 200) * bVolt;
+  const totalBattEnergyWh = battCapacityWh;
 
   // ── Step 4: Solar panels ───────────────────────────────────
   const solarPowerW    = totalBattEnergyWh / (cfg.sunHours || 4.5);

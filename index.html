@@ -1127,72 +1127,6 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
   <div class="crm-pipeline" id="crm-pipeline"></div>
 </div>
 
-<!-- ADMIN PAGE -->
-<div class="page" id="page-admin">
-  <button class="back-btn" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
-  <div class="page-header">
-    <div>
-      <div class="page-title">👑 Team &amp; Users</div>
-      <div class="page-desc">Manage staff accounts and view all audit activity</div>
-    </div>
-  </div>
-
-  <!-- Toast notification -->
-  <div id="staff-toast" style="display:none;position:fixed;top:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.3)"></div>
-
-  <!-- Create staff account -->
-  <div class="card" style="margin-bottom:20px">
-    <div class="card-title" style="margin-bottom:16px">Create Staff Account</div>
-    <div id="staff-create-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px"></div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Full Name</label>
-        <input type="text" class="form-input" id="new-staff-name" placeholder="e.g. Emeka Okafor">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email Address</label>
-        <input type="email" class="form-input" id="new-staff-email" placeholder="emeka@solariq.ng">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Temporary Password</label>
-        <input type="password" class="form-input" id="new-staff-pass" placeholder="Min. 6 characters">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Role</label>
-        <select class="form-input" id="new-staff-role">
-          <option value="staff">Staff — can create audits &amp; quotes</option>
-          <option value="admin">Admin — full access</option>
-        </select>
-      </div>
-    </div>
-    <div style="margin-top:4px">
-      <button id="btn-create-staff" class="btn btn-primary" onclick="adminCreateStaff()">+ Create Account</button>
-      <span style="font-size:12px;color:var(--text3);margin-left:12px">Staff will sign in with this email &amp; password. Ask them to change their password after first login.</span>
-    </div>
-  </div>
-
-  <!-- All team members -->
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div class="card-title">Team Members</div>
-      <button class="btn btn-ghost" onclick="loadAdminView()" style="font-size:12px">⟳ Refresh</button>
-    </div>
-    <div id="admin-users-list">
-      <div class="empty-state"><div class="empty-icon">👤</div><div class="empty-title">Loading team...</div></div>
-    </div>
-  </div>
-
-  <!-- All audits across staff -->
-  <div class="card" style="margin-top:20px">
-    <div class="card-title" style="margin-bottom:4px">All Staff Audits</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Every audit created by your team, newest first</div>
-    <div id="admin-all-audits">
-      <div class="empty-state"><div class="empty-title">Load the page to see audits</div></div>
-    </div>
-  </div>
-</div>
 
 </main>
 </div><!-- end app -->
@@ -1412,7 +1346,6 @@ function showPage(id) {
   if (id === 'pricing') renderPriceTable();
   if (id === 'dashboard') updateDashboard();
   if (id === 'new-audit') recalculate();
-  if (id === 'admin') { loadAdminView(); populateAdminAudits(); }
   if (id === 'packages') renderPackages();
   if (id === 'viz') renderVisualizations();
   if (id === 'crm') renderCrmPipeline();
@@ -2444,31 +2377,6 @@ function updateDashboard() {
   }
 }
 
-function populateAdminAudits() {
-  const el = document.getElementById('admin-all-audits');
-  if (!el) return;
-  const fmt = n => Math.round(n||0).toLocaleString('en-NG');
-  if (!state.audits.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-title">No audits found</div></div>';
-    return;
-  }
-  el.innerHTML = state.audits.map(a => {
-    const staffName = a._ownerName || a.createdBy?.name || 'Unknown';
-    const date = a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-NG') : '—';
-    return `
-      <div class="audit-item" onclick="openAuditModal('${a.id}')" style="cursor:pointer">
-        <div class="audit-icon">🏠</div>
-        <div class="audit-meta">
-          <div class="audit-title">${a.clientName || '—'}
-            <span style="font-size:10px;background:rgba(249,115,22,.12);color:var(--accent);padding:2px 7px;border-radius:20px;margin-left:6px">${staffName}</span>
-          </div>
-          <div class="audit-sub">${a.propertyType||''} · ${a.location||''} · ${date}</div>
-        </div>
-        <span class="badge badge-orange">₦${fmt(a.result?.total)}</span>
-      </div>`;
-  }).join('');
-}
-
 function updateBadges() {
   const aC = state.audits.length;
   const qC = state.quotes.length;
@@ -3096,28 +3004,6 @@ function renderCrmPipeline() {
         </div>
       </div>`;
   }).join('');
-}
-
-// ============================================================
-// ADMIN STUBS — local-only mode, no Firebase
-// ============================================================
-function loadAdminView() {
-  const el = document.getElementById('admin-users-list');
-  if (!el) return;
-  el.innerHTML = `
-    <div class="audit-item" style="cursor:default">
-      <div class="audit-icon" style="background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(249,115,22,.1))">👑</div>
-      <div class="audit-meta">
-        <div class="audit-title">Local Admin</div>
-        <div class="audit-sub">admin · Full access · Running in local mode</div>
-      </div>
-      <span class="badge badge-orange">Admin</span>
-    </div>
-    <div style="font-size:12px;color:var(--text3);padding:12px 0">Staff management requires cloud mode (Firebase). Currently running in local-only mode.</div>`;
-}
-
-function adminCreateStaff() {
-  alert('Staff accounts require cloud mode (Firebase). Currently running in local-only mode.');
 }
 
 // ============================================================

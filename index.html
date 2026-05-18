@@ -205,6 +205,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .price-row { display: grid; grid-template-columns: 3fr 1fr 1.5fr 1.5fr 80px; gap: 0; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .price-row.header { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--border2); padding-bottom: 8px; }
 .price-row:last-child { border-bottom: none; }
+@media(max-width:900px){
+  .price-row { grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 14px; }
+  .price-row.header { display: none; }
+  .price-row > div:nth-child(1) { grid-column: 1 / -1; font-weight: 600; color: var(--text); font-size: 13.5px; }
+  .price-row > div:nth-child(5) { display: none; }
+}
 .price-input-sm { width: 100%; padding: 6px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font-body); font-size: 13px; outline: none; transition: border .15s; }
 .price-input-sm:focus { border-color: var(--accent); }
 .quote-preview { background: white; color: #111; border-radius: var(--radius); padding: 40px; max-width: 700px; }

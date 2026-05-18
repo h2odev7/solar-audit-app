@@ -1249,9 +1249,6 @@ const DEFAULT_COMPANY = {
 // ============================================================
 // STATE
 // ============================================================
-// Pre-populate appliances so state is never empty
-const _defaultAppliances = {};
-// Will be filled after DEFAULT_APPLIANCES is defined — see initState()
 let state = {
   appliances: {},
   customAppliances: [],   // [{ id, name, watts, qty, hours }]
@@ -1260,7 +1257,6 @@ let state = {
   prices: JSON.parse(JSON.stringify(DEFAULT_PRICES)),
   config: { ...DEFAULT_CONFIG },
   company: { ...DEFAULT_COMPANY },
-  currentAuditId: null,
   activePriceTab: 'user',
 };
 // ============================================================
@@ -1285,20 +1281,28 @@ let currentModalAudit = null;
 // INIT
 // ============================================================
 function init() {
+  if (window._appInitialized) return;  // prevent double-init
+  window._appInitialized = true;
+
   // Merge cloud data if available
   if (window._cloudConfig)  state.config  = { ...DEFAULT_CONFIG,  ...window._cloudConfig };
   if (window._cloudCompany) state.company = { ...DEFAULT_COMPANY, ...window._cloudCompany };
   if (window._cloudPrices)  state.prices  = { ...DEFAULT_PRICES,  ...window._cloudPrices };
   if (window._cloudAudits)  state.audits  = window._cloudAudits;
   if (window._cloudQuotes)  state.quotes  = window._cloudQuotes;
-  initState();           // ← ensure all appliances are valid objects
-  loadFromStorage();     // ← apply any saved state
-  renderApplianceGrid(); // ← build table with correct data
-  renderCustomList();    // ← render any saved custom devices
+  initState();
+  loadFromStorage();
+  renderApplianceGrid();
+  renderCustomList();
   populateSettingsForm();
   recalculate();
   updateDashboard();
   updateBadges();
+
+  // Wire input listeners once
+  document.querySelectorAll('#battery-type,#markup').forEach(el => {
+    el && el.addEventListener('input', recalculate);
+  });
 }
 // Called by Firebase module after cloud load completes
 window.appReady = init;
@@ -1306,27 +1310,49 @@ window.appReady = init;
 function loadFromStorage() {
   const saved = localStorage.getItem('solariq_state');
   if (saved) {
-    const parsed = JSON.parse(saved);
-    state.audits = parsed.audits || [];
-    state.quotes = parsed.quotes || [];
-    state.prices = parsed.prices || JSON.parse(JSON.stringify(DEFAULT_PRICES));
-    state.config = parsed.config || { ...DEFAULT_CONFIG };
-    state.company = parsed.company || { ...DEFAULT_COMPANY };
-    state.customAppliances = parsed.customAppliances || [];
+    try {
+      const parsed = JSON.parse(saved);
+      state.audits  = parsed.audits  || [];
+      state.quotes  = parsed.quotes  || [];
+      state.prices  = parsed.prices  || JSON.parse(JSON.stringify(DEFAULT_PRICES));
+      // Merge so new config keys added in code are never wiped by old localStorage
+      state.config  = { ...DEFAULT_CONFIG,  ...(parsed.config  || {}) };
+      state.company = { ...DEFAULT_COMPANY, ...(parsed.company || {}) };
+      state.customAppliances  = parsed.customAppliances  || [];
+      state.activePriceTab    = parsed.activePriceTab    || 'user';
+      // Ensure voltage values are numbers, not strings (#10)
+      state.config.battVoltage    = Number(state.config.battVoltage)    || 48;
+      state.config.inverterVoltage = Number(state.config.inverterVoltage) || 48;
+    } catch(e) {
+      console.error('loadFromStorage: corrupt data, resetting', e);
+      localStorage.removeItem('solariq_state');
+    }
   }
-  // Ensure every appliance has a valid {qty, hours} object
   initAppliances();
 }
 
 function saveToStorage() {
   localStorage.setItem('solariq_state', JSON.stringify({
-    audits: state.audits,
-    quotes: state.quotes,
-    prices: state.prices,
-    config: state.config,
-    company: state.company,
-    customAppliances: state.customAppliances || []
+    audits:           state.audits,
+    quotes:           state.quotes,
+    prices:           state.prices,
+    config:           state.config,
+    company:          state.company,
+    customAppliances: state.customAppliances || [],
+    activePriceTab:   state.activePriceTab   || 'user',
   }));
+}
+
+// ============================================================
+// TOAST NOTIFICATIONS
+// ============================================================
+function showToast(msg, type) {
+  const color = type === 'error' ? '#f04545' : type === 'warn' ? '#f59e0b' : '#10d97a';
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;top:20px;right:20px;background:${color};color:${type==='warn'?'#08090c':'white'};padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s;max-width:320px`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
 }
 
 // ============================================================
@@ -1343,7 +1369,7 @@ function showPage(id) {
   });
   if (id === 'audits') renderAuditsList();
   if (id === 'quotes') renderQuotesList();
-  if (id === 'pricing') renderPriceTable();
+  if (id === 'pricing') { renderPriceTable(); switchPriceTab(state.activePriceTab || 'user'); }
   if (id === 'dashboard') updateDashboard();
   if (id === 'new-audit') recalculate();
   if (id === 'packages') renderPackages();
@@ -1522,7 +1548,6 @@ function calcSystem(appliances, opts) {
   const batteryKWh = Math.ceil(adjustedEnergyKWh * backupDays * dod * 10) / 10;
 
   const battCapacityAh    = (adjustedEnergyWh / ((cfg.battVoltage||48) * (cfg.battDod||0.8) * (cfg.battEfficiency||0.95))) * backupDays;
-  const totalBattEnergyWh_calc = battCapacityAh * (cfg.battVoltage||48) * backupDays;
   const battRuntimeHrs    = backupDays * 24;
 
   // Total batteries = ceil(battCapacityAh / individual Ah), then round per voltage rules
@@ -1636,12 +1661,12 @@ function recalculate() {
   set('calc-install',         '₦' + fmt(r.cInstall));
   set('calc-total',           '₦' + fmt(r.total));
 
-  // Savings comparison
-  const savings = calcSavings(r.total, r.totalEnergyKWh);
-  renderSavingsPanel(savings);
-
-  // Financing breakdown
-  renderFinancingPanel(r.total);
+  // Savings comparison + financing — only relevant on New Audit page
+  if (document.getElementById('page-new-audit')?.classList.contains('active')) {
+    const savings = calcSavings(r.total, r.totalEnergyKWh);
+    renderSavingsPanel(savings);
+    renderFinancingPanel(r.total);
+  }
 
   // Final Audit Report card
   set('rep-inverter-calc', fmt(Math.round(r.inverterSizeW||0)) + ' W | ' + (r.inverterKVA||0).toFixed(2) + ' kVA');
@@ -1696,7 +1721,7 @@ async function saveAudit() {
   saveToStorage();
   updateBadges();
   updateDashboard();
-  alert('✅ Audit saved for ' + clientName);
+  showToast('✅ Audit saved for ' + clientName);
 }
 
 // ============================================================
@@ -1803,7 +1828,9 @@ async function generateQuote(auditOverride) {
     clientName: audit.clientName,
     total: r.total,
     createdAt: new Date().toISOString(),
-    html: quoteHTML
+    html: quoteHTML,
+    // Embed snapshot so PDF works even when audit isn't saved
+    _auditSnapshot: audit.id === 'temp' ? audit : undefined,
   };
   // Save to cloud
   const cloudQId = await window.cloudSaveQuote(quote);
@@ -1820,20 +1847,20 @@ async function generateQuote(auditOverride) {
 function buildCurrentAudit() {
   return {
     id: 'temp',
-    clientName: document.getElementById('client-name').value || 'Client',
-    clientPhone: document.getElementById('client-phone').value || '',
-    propertyType: document.getElementById('property-type').value,
-    location: document.getElementById('client-location').value,
-    gridHours: parseFloat(document.getElementById('grid-hours').value)||4,
-    batteryType: document.getElementById('battery-type').value,
+    clientName:    document.getElementById('client-name').value    || 'Client',
+    clientPhone:   document.getElementById('client-phone').value   || '',
+    propertyType:  document.getElementById('property-type').value,
+    location:      document.getElementById('client-location').value,
+    gridHours:     parseFloat(document.getElementById('grid-hours').value) || 4,
+    batteryType:   document.getElementById('battery-type').value,
     inverterBrand: document.getElementById('inverter-brand').value,
-    panelBrand: document.getElementById('panel-brand').value,
-    markup: parseFloat(document.getElementById('markup').value)||0,
-    appliances: JSON.parse(JSON.stringify(state.appliances)),
+    panelBrand:    document.getElementById('panel-brand').value,
+    markup:        parseFloat(document.getElementById('markup').value) || 0,
+    appliances:       JSON.parse(JSON.stringify(state.appliances)),
+    customAppliances: JSON.parse(JSON.stringify(state.customAppliances || [])),
     result: calcSystem(state.appliances, {
-
       batteryType: document.getElementById('battery-type').value,
-      markup: parseFloat(document.getElementById('markup').value)||0
+      markup:      parseFloat(document.getElementById('markup').value) || 0
     })
   };
 }
@@ -1852,21 +1879,19 @@ function downloadPDF() {
   const PAGE_H = 297, PAGE_W = 210, MARGIN = 14, CONTENT_W = 182;
   const co = state.company;
   const q  = window._currentQuote;
-  const audit = state.audits.find(a => a.id === q.auditId) || {};
+  const audit = state.audits.find(a => a.id === q.auditId) || q._auditSnapshot || {};
   const r = audit.result || {};
   const fmt = n => Math.round(n || 0).toLocaleString('en-NG');
   const ORANGE = [249, 115, 22];
   const FOOTER_H = 14; // reserve space at bottom for footer
 
   let y = 0;
-  let page = 1;
 
   // ── Helper: new page if not enough room ──────────────────────
   function checkPage(needed) {
     if (y + needed > PAGE_H - FOOTER_H) {
       addFooter();
       doc.addPage();
-      page++;
       y = 14;
     }
   }
@@ -2196,6 +2221,7 @@ function renderPriceTable() {
 
 function switchPriceTab(tab) {
   state.activePriceTab = tab;
+  saveToStorage();
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='user'?0:1)));
   renderPriceTable();
 }
@@ -2208,7 +2234,7 @@ function savePrices() {
   });
   saveToStorage();
   recalculate();
-  alert('✅ Prices saved');
+  showToast('✅ Prices saved');
 }
 
 function resetPrices() {
@@ -2290,7 +2316,7 @@ function saveSettings() {
   saveToStorage();
   if (window.cloudSaveSettings) window.cloudSaveSettings(state.config, state.company, state.prices);
   recalculate();
-  alert('✅ Settings saved & synced to cloud');
+  showToast('✅ Settings saved');
 }
 
 function exportData() {
@@ -2309,7 +2335,7 @@ function clearAllData() {
   saveToStorage();
   updateBadges();
   updateDashboard();
-  alert('Data cleared');
+  showToast('🗑 All data cleared', 'warn');
 }
 
 // ============================================================
@@ -2403,7 +2429,7 @@ function addCustomAppliance() {
   const watts = parseFloat(document.getElementById('ca-watts').value) || 0;
   const qty   = parseInt(document.getElementById('ca-qty').value)   || 1;
   const hours = parseFloat(document.getElementById('ca-hours').value) || 4;
-  if (!name || !watts) { alert('Please enter a device name and wattage.'); return; }
+  if (!name || !watts) { showToast('Please enter a device name and wattage.', 'warn'); return; }
   const id = 'custom_' + Date.now();
   state.customAppliances = state.customAppliances || [];
   state.customAppliances.push({ id, name, watts, qty, hours });
@@ -2512,7 +2538,7 @@ function generateTieredQuote() {
     r: calcSystem(state.appliances, { batteryType: t.batteryType, markup, backupDays: t.backupDays })
   })).filter(t => t.r);
 
-  if (!results.length) { alert('Please add some appliances first.'); return; }
+  if (!results.length) { showToast('Please add some appliances first.', 'warn'); return; }
 
   const co = state.company;
   const dateStr = new Date().toLocaleDateString('en-NG', { year:'numeric', month:'long', day:'numeric' });
@@ -2935,7 +2961,7 @@ function toggleCrmForm() {
 
 function addCrmLead() {
   const name = document.getElementById('crm-name').value.trim();
-  if (!name) { alert('Please enter a client name.'); return; }
+  if (!name) { showToast('Please enter a client name.', 'warn'); return; }
   const leads = getCrmLeads();
   leads.push({
     id: 'lead_' + Date.now(),
@@ -3007,37 +3033,22 @@ function renderCrmPipeline() {
 }
 
 // ============================================================
-// LISTENERS
+// BOOT
 // ============================================================
-document.querySelectorAll('#battery-type,#markup').forEach(el => {
-  el && el.addEventListener('input', recalculate);
-});
-
-// ============================================================
-// BOOT — runs immediately, no Firebase dependency
-// ============================================================
-setTimeout(() => init(), 100);
-
-// ============================================================
-// DOM READY HOOK — Ensure calculations run on page load
-// ============================================================
-// calculateSystem is a legacy alias — all logic now lives in recalculate()
-function calculateSystem() {
-  recalculate();
-}
-
-function renderAppliances() {
-  renderApplianceGrid();
-  calculateSystem();
-}
+// calculateSystem is a legacy alias
+function calculateSystem() { recalculate(); }
+function renderAppliances() { renderApplianceGrid(); calculateSystem(); }
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOMContentLoaded fired');
-  initState();
-  loadFromStorage();
-  renderAppliances();
-  renderCustomList();
+  init();
 });
+
+// Fallback if DOMContentLoaded already fired (e.g. script deferred)
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(() => {
+    if (!window._appInitialized) init();
+  }, 50);
+}
 
 </script>
 </body>

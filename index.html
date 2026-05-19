@@ -541,7 +541,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
     </div>
     <div class="stat-card" style="--accent-color:var(--green)">
       <div class="stat-label">Total Revenue</div>
-      <div class="stat-value" id="dash-revenue">₦0</div>
+      <div class="stat-value" id="dash-revenue">—</div>
       <div class="stat-sub">From quotes generated</div>
     </div>
     <div class="stat-card" style="--accent-color:var(--blue)">
@@ -803,7 +803,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         <div style="font-size:12px;color:var(--text3);margin-bottom:14px;margin-top:-6px">Enter current spending to show the client their ROI</div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Grid Tariff (₦/kWh)</label>
+            <label class="form-label">Grid Tariff (<span id="lbl-grid-tariff-unit">per kWh</span>)</label>
             <input type="number" class="form-input" id="sc-tariff" value="225" min="0" step="5" oninput="recalculate()">
           </div>
           <div class="form-group">
@@ -817,7 +817,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
             <input type="number" class="form-input" id="sc-gen-litres" value="4" min="0" step="0.5" oninput="recalculate()">
           </div>
           <div class="form-group">
-            <label class="form-label">Fuel Price (₦/Litre)</label>
+            <label class="form-label">Fuel Price (<span id="lbl-fuel-unit">per Litre</span>)</label>
             <input type="number" class="form-input" id="sc-fuel-price" value="1400" min="0" step="50" oninput="recalculate()">
           </div>
         </div>
@@ -907,6 +907,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
           <div class="breakdown-label">☀️ Solar Panels<span id="calc-panel-desc">— · —W each</span></div>
           <div style="text-align:right">
             <div style="font-size:11px;color:var(--text3)" id="calc-panel-qty">— panels</div>
+            <div style="font-size:11px;color:var(--text3)" id="calc-panel-unit-price">—</div>
             <div class="breakdown-val" id="calc-panel-price">—</div>
           </div>
         </div>
@@ -916,6 +917,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
           <div class="breakdown-label">🔋 Battery<span id="calc-batt-desc">— · —Ah —V</span></div>
           <div style="text-align:right">
             <div style="font-size:11px;color:var(--text3)" id="calc-batt-qty">— units</div>
+            <div style="font-size:11px;color:var(--text3)" id="calc-batt-unit-price">—</div>
             <div class="breakdown-val" id="calc-batt-price">—</div>
           </div>
         </div>
@@ -942,8 +944,8 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         </div>
 
         <div class="breakdown-total">
-          <div class="breakdown-total-label">Client Quote Total <span id="currency-badge" style="font-size:10px;font-weight:600;background:var(--surface3);color:var(--text3);padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">NGN</span></div>
-          <div class="breakdown-total-val" id="calc-total">₦0</div>
+          <div class="breakdown-total-label">Client Quote Total <span id="currency-badge" style="font-size:10px;font-weight:600;background:var(--surface3);color:var(--text3);padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">USD</span></div>
+          <div class="breakdown-total-val" id="calc-total">—</div>
         </div>
 
         <!-- FINANCING BREAKDOWN -->
@@ -1214,10 +1216,10 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         <div class="form-group"><label class="form-label">Cabling Mode</label>
           <select class="form-input" id="cfg-cabling-mode">
             <option value="flat">Flat fee</option>
-            <option value="scaled">Scaled — ₦/kVA</option>
+            <option value="scaled">Scaled — per kVA</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Cabling — ₦ per kVA</label>
+        <div class="form-group"><label class="form-label">Cabling — <span id="lbl-cabling-unit">per kVA</span></label>
           <input type="number" class="form-input" id="cfg-cabling-per-kva" value="15000" min="0" step="500">
         </div>
       </div>
@@ -1225,10 +1227,10 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         <div class="form-group"><label class="form-label">Mounting Mode</label>
           <select class="form-input" id="cfg-mounting-mode">
             <option value="flat">Flat fee</option>
-            <option value="scaled">Scaled — ₦/panel</option>
+            <option value="scaled">Scaled — per panel</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Mounting — ₦ per panel</label>
+        <div class="form-group"><label class="form-label">Mounting — <span id="lbl-mounting-unit">per panel</span></label>
           <input type="number" class="form-input" id="cfg-mounting-per-panel" value="8000" min="0" step="500">
         </div>
       </div>
@@ -1236,10 +1238,10 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
         <div class="form-group"><label class="form-label">Accessories Mode</label>
           <select class="form-input" id="cfg-accessories-mode">
             <option value="flat">Flat fee</option>
-            <option value="scaled">Scaled — ₦/kVA</option>
+            <option value="scaled">Scaled — per kVA</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Accessories — ₦ per kVA</label>
+        <div class="form-group"><label class="form-label">Accessories — <span id="lbl-accessories-unit">per kVA</span></label>
           <input type="number" class="form-input" id="cfg-accessories-per-kva" value="8000" min="0" step="500">
         </div>
       </div>
@@ -1365,7 +1367,7 @@ details[open] > summary span:first-child { transform: rotate(90deg); }
     </div>
     <div style="margin-top:8px">
       <div class="custom-appl-label">Notes (optional)</div>
-      <input class="custom-appl-input" id="crm-notes" placeholder="Interested in full home system, budget ~₦5M">
+      <input class="custom-appl-input" id="crm-notes" placeholder="Interested in full home system, budget ~$5,000">
     </div>
   </div>
   <div class="crm-pipeline" id="crm-pipeline"></div>
@@ -1575,6 +1577,7 @@ function init() {
   initState();
   loadFromStorage();
   syncHiddenAuditInputs();
+  updateCurrencyLabels();
   renderApplianceGrid();
   renderCustomList();
   populateSettingsForm();
@@ -1739,6 +1742,7 @@ function onLocationChange() {
   saveToStorage();
   const curSel = document.getElementById('co-currency');
   if (curSel) curSel.value = currencyCode;
+  updateCurrencyLabels();
   recalculate();
   updateDashboard();
 
@@ -1774,16 +1778,38 @@ function onLocationChange() {
 function onCurrencyChange() {
   const sel = document.getElementById('co-currency');
   if (sel) state.company.currency = sel.value;
+  saveToStorage();
+  updateCurrencyLabels();
   recalculate();
   updateDashboard();
-  // Re-render catalog if on pricing page
-  if (document.getElementById('page-pricing')?.classList.contains('active')) {
-    renderCatalog();
-  }
-  // Re-render quote modal if open
+  if (document.getElementById('page-pricing')?.classList.contains('active')) renderCatalog();
   if (window._currentQuote && document.getElementById('quote-modal')?.classList.contains('open')) {
     document.getElementById('modal-quote-body').innerHTML = renderQuoteHTML(window._currentQuote);
   }
+}
+
+function updateCurrencyLabels() {
+  const sym = curSymbol();
+  const code = getActiveCurrency().code;
+  // Savings inputs
+  const gt = document.getElementById('lbl-grid-tariff-unit');
+  const fu = document.getElementById('lbl-fuel-unit');
+  if (gt) gt.textContent = `${sym}/kWh`;
+  if (fu) fu.textContent = `${sym}/Litre`;
+  // Balance of System settings
+  const cab = document.getElementById('lbl-cabling-unit');
+  const mnt = document.getElementById('lbl-mounting-unit');
+  const acc = document.getElementById('lbl-accessories-unit');
+  if (cab) cab.textContent = `${sym}/kVA`;
+  if (mnt) mnt.textContent = `${sym}/panel`;
+  if (acc) acc.textContent = `${sym}/kVA`;
+  // Dropdown Scaled options
+  document.querySelectorAll('#cfg-cabling-mode option[value="scaled"]').forEach(o => o.textContent = `Scaled — ${sym}/kVA`);
+  document.querySelectorAll('#cfg-mounting-mode option[value="scaled"]').forEach(o => o.textContent = `Scaled — ${sym}/panel`);
+  document.querySelectorAll('#cfg-accessories-mode option[value="scaled"]').forEach(o => o.textContent = `Scaled — ${sym}/kVA`);
+  // Currency badge in calc panel
+  const cb = document.getElementById('currency-badge');
+  if (cb) cb.textContent = code;
 }
 
 // ============================================================
@@ -2127,21 +2153,20 @@ function recalculate() {
   set('calc-inv-unit-price', `${fmtCur(invUnitPrice)} × ${invQty}`);
   set('calc-inv-price',      fmtCur(invTotalPrice));
 
-  set('calc-panel-desc',     `${panelBrand} · ${cfg.individualPanelW||400}W each`);
-  set('calc-panel-qty',      `${r.numPanels||0} panels`);
-  set('calc-panel-price',    fmtCur(r.cPanels));
+  set('calc-panel-desc',      `${panelBrand} · ${cfg.individualPanelW||400}W each`);
+  set('calc-panel-qty',       `${r.numPanels||0} panels`);
+  set('calc-panel-unit-price', r.numPanels > 0 ? `${fmtCur(r.cPanels / r.numPanels)} × ${r.numPanels}` : '—');
+  set('calc-panel-price',     fmtCur(r.cPanels));
 
-  set('calc-batt-desc',      `${battBrand} ${battLabel} · ${cfg.individualBattAh||200}Ah ${cfg.battVoltage||48}V`);
-  set('calc-batt-qty',       `${r.totalBatteries||0} units`);
-  set('calc-batt-price',     fmtCur(r.cBattery));
+  set('calc-batt-desc',       `${battBrand} ${battLabel} · ${cfg.individualBattAh||200}Ah ${cfg.battVoltage||48}V`);
+  set('calc-batt-qty',        `${r.totalBatteries||0} units`);
+  set('calc-batt-unit-price', r.totalBatteries > 0 ? `${fmtCur(r.cBattery / r.totalBatteries)} × ${r.totalBatteries}` : '—');
+  set('calc-batt-price',      fmtCur(r.cBattery));
 
   set('calc-accessories',    fmtCur(r.cAccessories));
   set('calc-install',        fmtCur(r.cInstall));
   set('calc-total',          fmtCur(r.total));
   set('calc-equip',          fmtCur(r.equipTotal));
-  // Update currency badge
-  const cb = document.getElementById('currency-badge');
-  if (cb) cb.textContent = getActiveCurrency().code;
 
   // Compatibility check — only when on new-audit page
   if (document.getElementById('page-new-audit')?.classList.contains('active')) {
@@ -3920,16 +3945,20 @@ function runCompatibilityCheck(r) {
       detail:`${invKVA} kVA is undersized for ${totalLoadKW.toFixed(2)} kW load`, status:'fail' });
   }
 
-  // 3. Battery type & voltage notes
+  // 3. Battery compatibility — always show type + voltage
+  const battTypeLabel = battType === 'lithium' ? 'Lithium (LiFePO4)' : 'Lead-Acid';
   if (battType === 'lead' && battVolt === 48) {
-    checks.push({ icon:'⚠️', label:'Lead-Acid @ 48V Wiring',
-      detail:'48V lead-acid requires 4× 12V batteries in series — verify wiring configuration', status:'warn' });
+    checks.push({ icon:'🔋', label:'Battery Compatibility',
+      detail:`${battTypeLabel} · ${battVolt}V — requires 4× 12V batteries in series, verify wiring configuration`, status:'warn' });
   } else if (battType === 'lead' && battVolt === 24) {
-    checks.push({ icon:'⚠️', label:'Lead-Acid @ 24V Wiring',
-      detail:'24V lead-acid requires 2× 12V batteries in series', status:'warn' });
+    checks.push({ icon:'🔋', label:'Battery Compatibility',
+      detail:`${battTypeLabel} · ${battVolt}V — requires 2× 12V batteries in series`, status:'warn' });
+  } else if (battType === 'lead') {
+    checks.push({ icon:'🔋', label:'Battery Compatibility',
+      detail:`${battTypeLabel} · ${battVolt}V — standard lead-acid configuration`, status:'ok' });
   } else {
-    checks.push({ icon:'✅', label:'Lithium Battery Compatibility',
-      detail:`LiFePO4 at ${battVolt}V — optimal for ${invVolt}V inverter systems`, status:'ok' });
+    checks.push({ icon:'🔋', label:'Battery Compatibility',
+      detail:`${battTypeLabel} · ${battVolt}V — optimal for ${invVolt}V inverter systems`, status:'ok' });
   }
 
   // 4. Panel array vs inverter MPPT input
@@ -3943,19 +3972,17 @@ function runCompatibilityCheck(r) {
       detail:`${(panelW/1000).toFixed(1)} kWp array may exceed MPPT capacity — verify inverter spec sheet`, status:'warn' });
   }
 
-  // 5. Battery runtime vs daily load
-  const battKWh   = (r.battCapacityWh || 0) / 1000;
-  const dailyKWh  = r.dailyKWh || 0;
-  const hoursRuntime = dailyKWh > 0 ? (battKWh / dailyKWh) * 24 : 0;
+  // 5. Battery runtime — uses same value as live calculation (battRuntimeHrs = backupDays × 24)
+  const hoursRuntime = r.battRuntimeHrs || 0;
   if (hoursRuntime >= 8) {
     checks.push({ icon:'⏱', label:'Battery Runtime',
-      detail:`${hoursRuntime.toFixed(1)} hrs full runtime — sufficient for daily use`, status:'ok' });
+      detail:`${hoursRuntime.toFixed ? hoursRuntime.toFixed(0) : hoursRuntime} hrs — sufficient for daily use`, status:'ok' });
   } else if (hoursRuntime >= 4) {
     checks.push({ icon:'⏱', label:'Battery Runtime',
-      detail:`${hoursRuntime.toFixed(1)} hrs full runtime — adequate but consider adding capacity`, status:'warn' });
+      detail:`${hoursRuntime.toFixed ? hoursRuntime.toFixed(0) : hoursRuntime} hrs — adequate but consider adding capacity`, status:'warn' });
   } else {
     checks.push({ icon:'⏱', label:'Battery Runtime',
-      detail:`${hoursRuntime.toFixed(1)} hrs full runtime — battery bank may be undersized`, status:'fail' });
+      detail:`${hoursRuntime.toFixed ? hoursRuntime.toFixed(0) : hoursRuntime} hrs — battery bank may be undersized`, status:'fail' });
   }
 
   const fails = checks.filter(c => c.status === 'fail').length;
